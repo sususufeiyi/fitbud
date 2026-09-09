@@ -1,0 +1,28 @@
+page {
+  --color-bg: #f5f7f4;
+  --color-ink: #1a2e1a;
+  --color-accent: #2d6a4f;
+  --color-muted: #6b7c6b;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.page {
+  padding: 32rpx;
+}
+
+.hero-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.hero-sub {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-muted);
+  line-height: 1.5;
+}

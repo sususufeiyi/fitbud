@@ -1,0 +1,41 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/checkin/checkin",
+    "pages/recommend/recommend",
+    "pages/rewards/rewards"
+  ],
+  "window": {
+    "navigationBarTitleText": "FitBud",
+    "navigationBarBackgroundColor": "#1a2e1a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7f4",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6b7c6b",
+    "selectedColor": "#2d6a4f",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/checkin/checkin",
+        "text": "打卡"
+      },
+      {
+        "pagePath": "pages/recommend/recommend",
+        "text": "种草"
+      },
+      {
+        "pagePath": "pages/rewards/rewards",
+        "text": "奖励"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

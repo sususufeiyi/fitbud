@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# IDE / WeChat DevTools
+.idea/
+.vscode/
+*.swp
+project.private.config.json
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+secrets/
+private/
+
+# Dependencies / build
+node_modules/
+miniprogram_npm/
+dist/
+unpackage/
+.cloudfunctions/
+*.log
