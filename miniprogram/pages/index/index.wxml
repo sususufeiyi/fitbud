@@ -1,4 +1,106 @@
-<view class="page">
-  <view class="hero-title">{{title}}</view>
-  <view class="hero-sub">{{subtitle}}</view>
+<view class="page" wx:if="{{ready}}">
+
+  <!-- ========== 首次 / 未入群：只展示创建或加入 ========== -->
+  <block wx:if="{{mode === 'onboarding'}}">
+    <view class="hero-title">FitBud</view>
+    <view class="hero-sub">和好朋友一起打卡、管住手、拿奖励</view>
+    <view class="tip" wx:if="{{tip}}">{{tip}}</view>
+
+    <view class="section-title">创建群组</view>
+    <view class="card form">
+      <input
+        class="input"
+        placeholder="群名称，如：飞皮练功房"
+        value="{{createName}}"
+        bindinput="onCreateName"
+        maxlength="20"
+      />
+      <button class="btn" type="primary" loading="{{loading}}" bindtap="createGroup">创建群组</button>
+    </view>
+
+    <view class="divider">或</view>
+
+    <view class="section-title">加入群组</view>
+    <view class="card form">
+      <input
+        class="input"
+        placeholder="输入好友分享的邀请码"
+        value="{{joinCode}}"
+        bindinput="onJoinCode"
+        maxlength="8"
+      />
+      <button class="btn" type="primary" loading="{{loading}}" bindtap="joinGroup">加入群组</button>
+    </view>
+  </block>
+
+  <!-- ========== 已入群：群信息 + 邀请 + 成员；底部显示 Tab ========== -->
+  <block wx:else>
+    <view class="hero-title">{{currentGroup.name}}</view>
+    <view class="hero-sub">当前群组 · 可邀请好友一起</view>
+    <view class="tip" wx:if="{{tip}}">{{tip}}</view>
+
+    <view class="card current">
+      <view class="invite-row">
+        <text class="invite-code">邀请码 {{currentGroup.inviteCode}}</text>
+        <text class="link" bindtap="copyInvite">复制</text>
+      </view>
+      <button class="share-btn" open-type="share">分享给微信好友入群</button>
+      <button class="action-main" bindtap="goCheckin">去打卡</button>
+    </view>
+
+    <view class="section-title">群成员 · {{members.length}} 人</view>
+    <view class="list-loading" wx:if="{{membersLoading}}">加载成员…</view>
+    <view class="member-item" wx:for="{{members}}" wx:key="_id">
+      <view class="member-left">
+        <view class="member-name">
+          {{item.displayName}}
+          <text class="me-tag" wx:if="{{item.isMe}}">我</text>
+          <text class="role-tag" wx:if="{{item.role === 'owner'}}">群主</text>
+        </view>
+        <view class="member-meta">
+          {{item.todayChecked ? '今日已打卡' : '今日未打卡'}} · 共 {{item.totalCheckins || 0}} 次
+        </view>
+      </view>
+      <view class="member-right">
+        <view class="member-stat">连续 {{item.streak || 0}}</view>
+        <view class="member-points">{{item.points || 0}} 分</view>
+      </view>
+    </view>
+
+    <view class="section-title" wx:if="{{groups.length > 1}}">切换群组</view>
+    <block wx:if="{{groups.length > 1}}">
+      <view
+        class="group-item {{currentGroup._id === item._id ? 'active' : ''}}"
+        wx:for="{{groups}}"
+        wx:key="_id"
+      >
+        <view class="group-main">
+          <view class="group-name">{{item.name}}</view>
+          <view class="group-meta">{{item.memberCount || 1}} 人</view>
+        </view>
+        <button
+          class="enter-btn {{currentGroup._id === item._id ? 'on' : ''}}"
+          size="mini"
+          data-id="{{item._id}}"
+          catchtap="switchGroup"
+        >
+          {{currentGroup._id === item._id ? '使用中' : '切换'}}
+        </button>
+      </view>
+    </block>
+
+    <view class="section-title">其他</view>
+    <view class="card form">
+      <view class="profile-label">再创建一个群</view>
+      <input class="input" placeholder="新群名称" value="{{createName}}" bindinput="onCreateName" maxlength="20" />
+      <button class="btn" type="primary" loading="{{loading}}" bindtap="createGroup">创建新群</button>
+      <view class="profile-label" style="margin-top: 24rpx;">用邀请码加入其他群</view>
+      <input class="input" placeholder="邀请码" value="{{joinCode}}" bindinput="onJoinCode" maxlength="8" />
+      <button class="btn ghost" loading="{{loading}}" bindtap="joinGroup">加入</button>
+    </view>
+  </block>
+</view>
+
+<view class="page" wx:else>
+  <view class="hero-sub">加载中…</view>
 </view>

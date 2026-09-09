@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "FitBud"
+  "navigationBarTitleText": "FitBud",
+  "enableShareAppMessage": true
 }

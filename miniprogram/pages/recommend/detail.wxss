@@ -1,0 +1,174 @@
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.title {
+  flex: 1;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.status {
+  padding: 6rpx 16rpx;
+  font-size: 22rpx;
+  border-radius: 999rpx;
+}
+
+.status.pending {
+  background: #fff0d6;
+  color: #9a6b2f;
+}
+
+.status.approved {
+  background: var(--color-mint);
+  color: #3d6b52;
+}
+
+.status.rejected {
+  background: #ffe0e0;
+  color: #c45c5c;
+}
+
+.sub {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
+}
+
+.block {
+  margin-top: 24rpx;
+  padding: 28rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.block-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 10rpx 0;
+  font-size: 26rpx;
+}
+
+.k {
+  color: var(--color-muted);
+}
+
+.v {
+  text-align: right;
+  font-weight: 500;
+}
+
+.manifesto {
+  font-size: 28rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.photos image {
+  width: 210rpx;
+  height: 210rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.vote {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--color-line);
+}
+
+.vote-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.ok {
+  color: #3d6b52;
+}
+
+.no {
+  color: #c45c5c;
+}
+
+.vote-reason {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.pending {
+  padding: 12rpx 0;
+  font-size: 24rpx;
+  color: var(--color-muted);
+}
+
+.empty,
+.hint,
+.tip {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
+}
+
+.unit-row {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.unit {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  background: #fff6ec;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+}
+
+.unit.on {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.unit.on.reject {
+  background: #ffe0e0;
+  color: #c45c5c;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+  padding: 20rpx;
+  background: #fff6ec;
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  border: 2rpx solid var(--color-line);
+}
+
+.btn {
+  margin-top: 20rpx;
+  background: var(--color-accent) !important;
+  border-radius: 999rpx !important;
+}

@@ -1,4 +1,104 @@
-<view class="page">
-  <view class="hero-title">{{title}}</view>
-  <view class="hero-sub">{{subtitle}}</view>
+<view class="page" wx:if="{{!locked}}">
+  <view class="top-bar">
+    <picker mode="selector" range="{{members}}" range-key="displayName" value="{{memberIndex}}" bindchange="onMemberChange">
+      <view class="viewer">
+        {{targetName || '选择成员'}}
+        <text class="viewer-arrow">▾</text>
+        <text class="me-badge" wx:if="{{isMe}}" catchtap="openRename">我 · 改名</text>
+      </view>
+    </picker>
+    <view class="stats-mini">连续 {{streak}} · {{points}} 分</view>
+  </view>
+
+  <view class="board">
+    <view class="week-nav">
+      <view class="nav-btn" bindtap="prevWeek">‹</view>
+      <view class="range">{{rangeLabel}}</view>
+      <view class="nav-btn" bindtap="nextWeek">›</view>
+    </view>
+
+    <view class="tip" wx:if="{{tip}}">{{tip}}</view>
+    <view class="tip muted" wx:if="{{loading}}">加载中…</view>
+
+    <!-- 表头：日一二三四五六 -->
+    <view class="grid-head">
+      <view class="habit-col head-label"></view>
+      <view class="day-col" wx:for="{{days}}" wx:key="key">{{item.label}}</view>
+    </view>
+
+    <!-- 行 -->
+    <view class="grid-row" wx:for="{{grid}}" wx:key="habitId" wx:for-item="row">
+      <view class="habit-col" bindlongpress="removeHabit" data-habitid="{{row.habitId}}">
+        <text class="habit-emoji">{{row.emoji}}</text>
+        <text class="habit-name">{{row.name}}</text>
+      </view>
+      <view
+        class="day-col cell {{cell.checked ? 'on' : 'off'}} {{isMe ? 'editable' : ''}}"
+        wx:for="{{row.cells}}"
+        wx:for-item="cell"
+        wx:key="day"
+        style="{{cell.checked ? 'background:' + row.color : ''}}"
+        data-habitid="{{row.habitId}}"
+        data-day="{{cell.day}}"
+        bindtap="toggleCell"
+      >
+        <text wx:if="{{cell.checked}}" class="check">✓</text>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!loading && !grid.length}}">
+      {{isMe ? '还没有打卡项，点下方添加' : '对方还没有自定义打卡项'}}
+    </view>
+
+    <view class="hint" wx:if="{{isMe && grid.length}}">点击格子打卡 · 长按左侧名称可删除</view>
+    <view class="hint" wx:if="{{!isMe}}">正在查看 {{targetName}} 的打卡（只读）</view>
+  </view>
+
+  <button class="add-btn" wx:if="{{isMe}}" bindtap="openAdd">＋ 添加打卡项</button>
+</view>
+
+<view class="page" wx:else>
+  <view class="tip">{{tip || '请先创建或加入群组'}}</view>
+</view>
+
+<!-- 添加打卡项 -->
+<view class="mask" wx:if="{{showAdd}}" bindtap="closeAdd"></view>
+<view class="sheet" wx:if="{{showAdd}}">
+  <view class="sheet-title">添加打卡项</view>
+  <view class="emoji-row">
+    <view
+      class="emoji-item {{newEmoji === item ? 'on' : ''}}"
+      wx:for="{{emojiPresets}}"
+      wx:key="*this"
+      data-emoji="{{item}}"
+      catchtap="pickEmoji"
+    >{{item}}</view>
+  </view>
+  <input class="sheet-input" placeholder="名称，如：健身" value="{{newName}}" bindinput="onNewName" maxlength="12" />
+  <button class="sheet-ok" bindtap="addHabit">添加</button>
+</view>
+
+<!-- 改群内显示名 -->
+<view class="mask" wx:if="{{showRename}}" bindtap="closeRename"></view>
+<view class="sheet" wx:if="{{showRename}}" catchtap="noop">
+  <view class="sheet-title">群内显示名</view>
+  <view class="sheet-desc">这个名字会显示在群成员和打卡页</view>
+  <view class="sheet-label">微信一键选昵称</view>
+  <input
+    class="sheet-input"
+    type="nickname"
+    placeholder="点这里使用微信昵称"
+    value="{{nickDraft}}"
+    bindblur="onNickBlur"
+    bindchange="onNickBlur"
+  />
+  <view class="sheet-label">或手动输入</view>
+  <input
+    class="sheet-input"
+    placeholder="输入想展示的名字"
+    value="{{nickDraft}}"
+    maxlength="20"
+    bindinput="onNickInput"
+  />
+  <button class="sheet-ok" loading="{{savingNick}}" bindtap="saveNick">保存</button>
 </view>

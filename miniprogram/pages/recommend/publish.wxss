@@ -1,0 +1,144 @@
+.label {
+  margin: 24rpx 0 10rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  height: 88rpx;
+  box-sizing: border-box;
+  padding: 0 24rpx;
+  line-height: normal;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  border: 2rpx solid var(--color-line);
+  box-shadow: var(--shadow-card);
+}
+
+.picker {
+  display: flex;
+  align-items: center;
+}
+
+.unit-row {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.unit {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  background: var(--color-card);
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: var(--color-muted);
+  box-shadow: var(--shadow-card);
+}
+
+.unit.on {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.calc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-accent);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding: 22rpx 24rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.box {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid #dccfc3;
+  text-align: center;
+  line-height: 36rpx;
+  font-size: 24rpx;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.box.on {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.check-text {
+  font-size: 26rpx;
+  line-height: 1.4;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 180rpx;
+  box-sizing: border-box;
+  padding: 20rpx 24rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  font-size: 28rpx;
+  border: 2rpx solid var(--color-line);
+}
+
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.photo {
+  position: relative;
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-card);
+}
+
+.photo image {
+  width: 100%;
+  height: 100%;
+}
+
+.photo.add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  color: var(--color-muted);
+  border: 2rpx dashed #dccfc3;
+}
+
+.del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40rpx;
+  height: 40rpx;
+  background: rgba(92, 70, 56, 0.55);
+  color: #fff;
+  text-align: center;
+  line-height: 36rpx;
+  font-size: 28rpx;
+}
+
+.btn {
+  margin: 40rpx 0 60rpx;
+  background: var(--color-accent) !important;
+  border-radius: 999rpx !important;
+}

@@ -1,1 +1,55 @@
-/* rewards */
+.stats {
+  display: flex;
+  gap: 16rpx;
+  margin: 40rpx 0 28rpx;
+}
+
+.stat {
+  flex: 1;
+  padding: 28rpx 16rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  box-shadow: var(--shadow-card);
+}
+
+.stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.stat-label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+  padding: 28rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.item-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
+}
+
+.claim {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+  border-radius: 999rpx !important;
+}

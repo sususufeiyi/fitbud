@@ -3,24 +3,26 @@
     "pages/index/index",
     "pages/checkin/checkin",
     "pages/recommend/recommend",
+    "pages/recommend/publish",
+    "pages/recommend/detail",
     "pages/rewards/rewards"
   ],
   "window": {
     "navigationBarTitleText": "FitBud",
-    "navigationBarBackgroundColor": "#1a2e1a",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f7f4",
+    "navigationBarBackgroundColor": "#fff6ec",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#fff6ec",
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#6b7c6b",
-    "selectedColor": "#2d6a4f",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "color": "#a89888",
+    "selectedColor": "#e8917a",
+    "backgroundColor": "#fffaf5",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页"
+        "text": "群组"
       },
       {
         "pagePath": "pages/checkin/checkin",
@@ -28,7 +30,7 @@
       },
       {
         "pagePath": "pages/recommend/recommend",
-        "text": "种草"
+        "text": "管住手"
       },
       {
         "pagePath": "pages/rewards/rewards",

@@ -1,0 +1,9 @@
+{
+  "name": "group",
+  "version": "1.0.0",
+  "description": "FitBud group create/join/list",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

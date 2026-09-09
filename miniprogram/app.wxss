@@ -1,9 +1,21 @@
 page {
-  --color-bg: #f5f7f4;
-  --color-ink: #1a2e1a;
-  --color-accent: #2d6a4f;
-  --color-muted: #6b7c6b;
-  background: var(--color-bg);
+  /* 奶油可爱风 */
+  --color-bg: #fff6ec;
+  --color-bg-soft: #ffe8d6;
+  --color-card: #ffffff;
+  --color-ink: #5c4638;
+  --color-accent: #e8917a;
+  --color-accent-soft: #ffd4c4;
+  --color-mint: #b8dcc8;
+  --color-muted: #a89888;
+  --color-line: #f0e4d8;
+  --radius-lg: 36rpx;
+  --radius-md: 28rpx;
+  --radius-sm: 20rpx;
+  --shadow-card: 0 12rpx 40rpx rgba(92, 70, 56, 0.08);
+
+  background: linear-gradient(180deg, #fff6ec 0%, #ffeeda 40%, #fff6ec 100%);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
   min-height: 100%;
@@ -12,17 +24,33 @@ page {
 
 .page {
   padding: 32rpx;
+  padding-bottom: 48rpx;
 }
 
 .hero-title {
-  font-size: 48rpx;
+  font-size: 52rpx;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
 }
 
 .hero-sub {
   margin-top: 12rpx;
   font-size: 28rpx;
   color: var(--color-muted);
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+/* 通用卡片 */
+.card,
+.board,
+.block {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.btn,
+button[type='primary'] {
+  border-radius: 999rpx !important;
 }
