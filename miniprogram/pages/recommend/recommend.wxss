@@ -13,6 +13,50 @@
   color: var(--color-muted);
 }
 
+.filters {
+  display: flex;
+  flex-direction: row;
+  white-space: nowrap;
+  margin: 8rpx 0 20rpx;
+  padding-bottom: 4rpx;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+  padding: 12rpx 22rpx;
+  font-size: 24rpx;
+  color: var(--color-ink);
+  background: #fff;
+  border-radius: 999rpx;
+  box-shadow: 0 4rpx 16rpx rgba(92, 70, 56, 0.06);
+}
+
+.filter-chip.on {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.filter-count {
+  margin-left: 8rpx;
+  min-width: 28rpx;
+  padding: 0 8rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  text-align: center;
+  font-size: 18rpx;
+  border-radius: 999rpx;
+  background: rgba(92, 70, 56, 0.08);
+  color: inherit;
+}
+
+.filter-chip.on .filter-count {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .tip {
   margin-bottom: 16rpx;
   font-size: 24rpx;
@@ -36,7 +80,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .name {
@@ -65,6 +109,12 @@
 .status.rejected {
   background: #ffe0e0;
   color: #c45c5c;
+}
+
+.status.redeemed,
+.status.bought {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .meta,
@@ -96,6 +146,121 @@
 .tag.lux {
   background: #f3e8ff;
   color: #8b5bb0;
+}
+
+.redeem-bar {
+  margin-top: 22rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  border-radius: 24rpx;
+}
+
+.redeem-bar.ok {
+  background: #fff0ea;
+}
+
+.redeem-bar.short {
+  background: #f5efe9;
+}
+
+.redeem-bar:active {
+  opacity: 0.88;
+}
+
+.redeem-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.redeem-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.redeem-ratio {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted);
+}
+
+.redeem-ratio .mine {
+  font-weight: 700;
+  color: var(--color-accent);
+  font-size: 26rpx;
+}
+
+.redeem-bar.short .mine {
+  color: #a89888;
+}
+
+.redeem-ratio .need-pts {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.redeem-ratio .hint {
+  color: var(--color-muted);
+}
+
+.redeem-action {
+  flex-shrink: 0;
+  padding: 12rpx 22rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-accent);
+  border-radius: 999rpx;
+}
+
+.redeem-action.off {
+  background: #ddd2c8;
+  color: #9a8b7c;
+}
+
+.buy-bar {
+  margin-top: 22rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  border-radius: 24rpx;
+  background: #e8f5ee;
+}
+
+.buy-bar:active {
+  opacity: 0.88;
+}
+
+.buy-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.buy-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.buy-sub {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted);
+}
+
+.buy-action {
+  flex-shrink: 0;
+  padding: 12rpx 28rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #fff;
+  background: #5a9e78;
+  border-radius: 999rpx;
 }
 
 .empty {

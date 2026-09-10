@@ -1,13 +1,26 @@
 <view class="page" wx:if="{{!locked}}">
   <view class="hero">
-    <view class="hero-title">管住手</view>
-    <view class="hero-sub">想买先过群审，全员通过才能购入</view>
+    <view class="hero-title">想买</view>
+    <view class="hero-sub">想买先过群审 · 1 积分抵 ¥10 · 我的积分 {{myPoints}}</view>
   </view>
+
+  <scroll-view class="filters" scroll-x enable-flex>
+    <view
+      class="filter-chip {{filterKey === item.key ? 'on' : ''}}"
+      wx:for="{{filters}}"
+      wx:key="key"
+      data-key="{{item.key}}"
+      bindtap="onFilterTap"
+    >
+      {{item.label}}
+      <text class="filter-count" wx:if="{{filterCounts[item.key]}}">{{filterCounts[item.key]}}</text>
+    </view>
+  </scroll-view>
 
   <view class="tip" wx:if="{{tip}}">{{tip}}</view>
   <view class="tip muted" wx:if="{{loading}}">加载中…</view>
 
-  <view class="card" wx:for="{{list}}" wx:key="_id" data-id="{{item._id}}" bindtap="goDetail">
+  <view class="card" wx:for="{{filteredList}}" wx:key="_id" data-id="{{item._id}}" bindtap="goDetail">
     <view class="card-top">
       <view class="name">{{item.name}}</view>
       <view class="status {{item.statusClass}}">{{item.statusText}}</view>
@@ -23,9 +36,45 @@
       <text class="tag" wx:if="{{item.isExpensive}}">贵价</text>
       <text class="tag lux" wx:if="{{item.isLuxury}}">奢侈</text>
     </view>
+
+    <view
+      wx:if="{{item.showRedeem}}"
+      class="redeem-bar {{item.canRedeem ? 'ok' : 'short'}}"
+      catchtap="onRedeem"
+      data-id="{{item._id}}"
+      data-can="{{item.canRedeem}}"
+      data-cost="{{item.redeemCost}}"
+    >
+      <view class="redeem-info">
+        <view class="redeem-label">积分兑换</view>
+        <view class="redeem-ratio">
+          <text class="mine">{{myPoints}}</text>
+          <text class="sep"> / </text>
+          <text class="need-pts">{{item.redeemCost}}</text>
+          <text class="hint"> · 抵 ¥{{item.redeemCost * 10}}</text>
+        </view>
+      </view>
+      <view class="redeem-action {{item.canRedeem ? '' : 'off'}}">
+        {{item.canRedeem ? '去兑换' : '积分不足'}}
+      </view>
+    </view>
+
+    <view
+      wx:if="{{item.showBuy}}"
+      class="buy-bar"
+      catchtap="onMarkBought"
+      data-id="{{item._id}}"
+    >
+      <view class="buy-info">
+        <view class="buy-label">可以下手啦</view>
+        <view class="buy-sub" wx:if="{{item.viaPoints}}">已用积分兑换</view>
+        <view class="buy-sub" wx:else>群审已通过</view>
+      </view>
+      <view class="buy-action">买！</view>
+    </view>
   </view>
 
-  <view class="empty" wx:if="{{!loading && !list.length}}">还没有申请，管住手从第一次开始</view>
+  <view class="empty" wx:if="{{!loading && !filteredList.length}}">{{emptyTip}}</view>
 
   <button class="fab" bindtap="goPublish">发起想买</button>
 </view>

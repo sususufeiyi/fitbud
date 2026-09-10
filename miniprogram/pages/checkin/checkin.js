@@ -35,6 +35,8 @@ Page({
     streak: 0,
     points: 0,
     today: '',
+    isCurrentWeek: true,
+    weekProgress: [],
     members: [],
     memberIndex: 0,
     showAdd: false,
@@ -96,6 +98,10 @@ Page({
       members[this.data.memberIndex] || members.find((m) => m.isMe) || members[0]
     const targetOpenid = (target && target.openid) || ''
 
+    // 显式传 '' 表示回到本周；未传则沿用当前 weekStart
+    const nextWeekStart =
+      weekStart === '' ? '' : weekStart || this.data.weekStart || ''
+
     this.setData({ loading: true })
     return wx.cloud
       .callFunction({
@@ -103,7 +109,7 @@ Page({
         data: {
           action: 'week',
           groupId: group._id,
-          weekStart: weekStart || this.data.weekStart || '',
+          weekStart: nextWeekStart,
           targetOpenid
         }
       })
@@ -121,12 +127,14 @@ Page({
           rangeLabel: r.rangeLabel,
           days: r.days || [],
           grid: r.grid || [],
+          weekProgress: r.weekProgress || [],
           isMe: !!r.isMe,
           targetOpenid: r.targetOpenid,
           targetName: r.targetName,
           streak: r.streak || 0,
           points: r.points || 0,
           today: r.today,
+          isCurrentWeek: (r.days || []).some((d) => d.key === r.today),
           tip: '',
           loading: false
         })
@@ -149,6 +157,11 @@ Page({
     this.loadWeek(shiftWeekStart(this.data.weekStart, 1))
   },
 
+  goToToday() {
+    if (this.data.isCurrentWeek || this.data.loading) return
+    this.loadWeek('')
+  },
+
   onMemberChange(e) {
     const memberIndex = Number(e.detail.value)
     this.setData({ memberIndex })
@@ -162,27 +175,82 @@ Page({
     const group = getCurrentGroup()
     if (!group || !habitId || !day) return
 
+    const row = (this.data.grid || []).find((r) => r.habitId === habitId)
+    const cell = row && (row.cells || []).find((c) => c.day === day)
+    if (!cell) return
+
+    if (cell.future) {
+      wx.showToast({ title: '不能打未来的卡', icon: 'none' })
+      return
+    }
+
+    const today = this.data.today || ''
+    // 未打过的过去日期：补卡确认（积分减半）
+    if (!cell.checked && today && day < today) {
+      this.doToggle(group._id, habitId, day)
+      return
+    }
+
+    this.doToggle(group._id, habitId, day)
+  },
+
+  /** 根据当前格子刷新「我」的周进度条 */
+  refreshMyProgress(grid) {
+    const rows = grid || this.data.grid || []
+    let done = 0
+    let total = 0
+    rows.forEach((row) => {
+      ;(row.cells || []).forEach((c) => {
+        if (c.future) return
+        total += 1
+        if (c.checked) done += 1
+      })
+    })
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0
+    const weekProgress = (this.data.weekProgress || []).map((p) =>
+      p.isMe
+        ? {
+            ...p,
+            done,
+            total,
+            habitCount: rows.length,
+            percent
+          }
+        : p
+    )
+    this.setData({ weekProgress })
+  },
+
+  doToggle(groupId, habitId, day) {
     wx.cloud
       .callFunction({
         name: 'checkin',
-        data: { action: 'toggle', groupId: group._id, habitId, day }
+        data: { action: 'toggle', groupId, habitId, day }
       })
       .then((res) => {
         const r = res.result || {}
         if (!r.ok) {
-          wx.showToast({
-            title: r.error === 'forbidden' ? '只能改自己的' : '操作失败',
-            icon: 'none'
-          })
+          const msg =
+            r.error === 'future_not_allowed'
+              ? '不能打未来的卡'
+              : r.error === 'forbidden'
+                ? '只能改自己的'
+                : '操作失败'
+          wx.showToast({ title: msg, icon: 'none' })
           return
         }
-        // 本地更新格子
         const grid = (this.data.grid || []).map((row) => {
           if (row.habitId !== habitId) return row
           return {
             ...row,
             cells: row.cells.map((c) =>
-              c.day === day ? { ...c, checked: !!r.checked } : c
+              c.day === day
+                ? {
+                    ...c,
+                    checked: !!r.checked,
+                    isMakeup: r.checked ? !!r.isMakeup : false
+                  }
+                : c
             )
           }
         })
@@ -191,6 +259,12 @@ Page({
           streak: r.streak != null ? r.streak : this.data.streak,
           points: r.points != null ? r.points : this.data.points
         })
+        if (this.data.isMe) this.refreshMyProgress(grid)
+        if (r.checked && r.isMakeup && r.pointsGain > 0) {
+          wx.showToast({ title: `补卡 +${r.pointsGain}`, icon: 'none' })
+        } else if (r.checked && r.pointsGain > 0) {
+          wx.showToast({ title: `+${r.pointsGain} 分`, icon: 'none' })
+        }
       })
       .catch(() => wx.showToast({ title: '网络错误', icon: 'none' }))
   },

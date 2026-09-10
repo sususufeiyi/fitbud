@@ -32,6 +32,12 @@
   color: #c45c5c;
 }
 
+.status.redeemed,
+.status.bought {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
 .sub {
   margin-top: 10rpx;
   font-size: 24rpx;

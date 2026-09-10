@@ -37,6 +37,29 @@ function calcUnitPrice(price, usageCount) {
   return Math.round((p / n) * 100) / 100
 }
 
+/** 1 积分抵 10 元 */
+function pointsNeeded(price) {
+  const p = Number(price)
+  if (!(p > 0)) return 0
+  return Math.ceil(p / 10)
+}
+
+async function addPointLog({ groupId, openid, delta, balance, reason, title, refId }) {
+  if (!groupId || !openid || !delta) return
+  await db.collection('point_logs').add({
+    data: {
+      groupId,
+      openid,
+      delta,
+      balance: balance != null ? balance : 0,
+      reason: reason || '',
+      title: String(title || '').slice(0, 40),
+      refId: refId || '',
+      createdAt: db.serverDate()
+    }
+  })
+}
+
 function finalizeStatus(item) {
   const required = item.requiredVoters || []
   const votes = item.votes || []
@@ -53,7 +76,7 @@ function finalizeStatus(item) {
 }
 
 /**
- * action: list | create | detail | vote
+ * action: list | create | detail | vote | redeem | markBought
  */
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
@@ -79,6 +102,7 @@ exports.main = async (event = {}) => {
     members.forEach((m) => {
       nameMap[memberOpenid(m)] = displayName(m)
     })
+    const myPoints = me.points || 0
 
     const list = (res.data || [])
       .map((item) => {
@@ -86,6 +110,10 @@ exports.main = async (event = {}) => {
         const votes = item.votes || []
         const myVote = votes.find((v) => v.openid === OPENID)
         const isAuthor = item.authorOpenid === OPENID
+        const cost = pointsNeeded(item.price)
+        const showRedeem =
+          isAuthor && (item.status === 'pending' || item.status === 'rejected') && cost > 0
+        const showBuy = isAuthor && item.status === 'approved'
         return {
           _id: item._id,
           name: item.name,
@@ -104,7 +132,12 @@ exports.main = async (event = {}) => {
           isAuthor,
           voteProgress: `${votes.length}/${required.length || 0}`,
           needMyVote: !isAuthor && required.includes(OPENID) && !myVote,
-          createdAt: item.createdAt
+          createdAt: item.createdAt,
+          showRedeem,
+          redeemCost: cost,
+          canRedeem: showRedeem && myPoints >= cost,
+          showBuy,
+          viaPoints: !!item.viaPoints
         }
       })
       .sort((a, b) => {
@@ -113,7 +146,7 @@ exports.main = async (event = {}) => {
         return tb - ta
       })
 
-    return { ok: true, list }
+    return { ok: true, list, myPoints }
   }
 
   if (action === 'create') {
@@ -255,6 +288,75 @@ exports.main = async (event = {}) => {
     })
 
     return { ok: true, status, votesCount: votes.length }
+  }
+
+  if (action === 'redeem') {
+    const id = event.id
+    if (!id) return { ok: false, error: 'id_required' }
+
+    const doc = await col.doc(id).get()
+    const item = doc.data
+    if (!item || item.groupId !== groupId) return { ok: false, error: 'not_found' }
+    if (item.authorOpenid !== OPENID) return { ok: false, error: 'forbidden' }
+    if (item.status !== 'pending' && item.status !== 'rejected') {
+      return { ok: false, error: 'not_redeemable' }
+    }
+    if (item.pointsRedeemedAt || item.status === 'bought' || item.status === 'redeemed') {
+      return { ok: false, error: 'already_redeemed' }
+    }
+
+    const cost = pointsNeeded(item.price)
+    if (!(cost > 0)) return { ok: false, error: 'price_invalid' }
+
+    const points = me.points || 0
+    if (points < cost) return { ok: false, error: 'not_enough_points', points, cost }
+
+    const nextPoints = points - cost
+    await db.collection('group_members').doc(me._id).update({
+      data: { points: _.inc(-cost) }
+    })
+    // 积分兑换成功 → 进入「可以买」
+    await col.doc(id).update({
+      data: {
+        status: 'approved',
+        viaPoints: true,
+        pointsRedeemedAt: db.serverDate(),
+        redeemCost: cost,
+        updatedAt: db.serverDate()
+      }
+    })
+    await addPointLog({
+      groupId,
+      openid: OPENID,
+      delta: -cost,
+      balance: nextPoints,
+      reason: 'shop_redeem',
+      title: `兑换「${item.name || '想买'}」`,
+      refId: id
+    })
+
+    return { ok: true, cost, points: nextPoints, status: 'approved' }
+  }
+
+  if (action === 'markBought') {
+    const id = event.id
+    if (!id) return { ok: false, error: 'id_required' }
+
+    const doc = await col.doc(id).get()
+    const item = doc.data
+    if (!item || item.groupId !== groupId) return { ok: false, error: 'not_found' }
+    if (item.authorOpenid !== OPENID) return { ok: false, error: 'forbidden' }
+    if (item.status !== 'approved') return { ok: false, error: 'not_buyable' }
+
+    await col.doc(id).update({
+      data: {
+        status: 'bought',
+        boughtAt: db.serverDate(),
+        updatedAt: db.serverDate()
+      }
+    })
+
+    return { ok: true, status: 'bought' }
   }
 
   return { ok: false, error: 'unknown_action' }

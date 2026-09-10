@@ -1,7 +1,7 @@
 {
   "name": "checkin",
   "version": "1.0.0",
-  "description": "FitBud daily fitness check-in",
+  "description": "坚持有奖乱买要批 daily fitness check-in",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"

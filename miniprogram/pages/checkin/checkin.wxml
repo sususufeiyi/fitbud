@@ -15,6 +15,10 @@
       <view class="nav-btn" bindtap="prevWeek">‹</view>
       <view class="range">{{rangeLabel}}</view>
       <view class="nav-btn" bindtap="nextWeek">›</view>
+      <view
+        class="today-btn {{isCurrentWeek ? 'disabled' : ''}}"
+        bindtap="goToToday"
+      >今天</view>
     </view>
 
     <view class="tip" wx:if="{{tip}}">{{tip}}</view>
@@ -33,7 +37,7 @@
         <text class="habit-name">{{row.name}}</text>
       </view>
       <view
-        class="day-col cell {{cell.checked ? 'on' : 'off'}} {{isMe ? 'editable' : ''}}"
+        class="day-col cell {{cell.checked ? 'on' : 'off'}} {{cell.future ? 'future' : ''}} {{cell.isMakeup ? 'makeup' : ''}} {{cell.isToday ? 'today' : ''}} {{isMe && !cell.future ? 'editable' : ''}}"
         wx:for="{{row.cells}}"
         wx:for-item="cell"
         wx:key="day"
@@ -43,6 +47,7 @@
         bindtap="toggleCell"
       >
         <text wx:if="{{cell.checked}}" class="check">✓</text>
+        <text wx:if="{{cell.checked && cell.isMakeup}}" class="makeup-tag">补</text>
       </view>
     </view>
 
@@ -50,8 +55,33 @@
       {{isMe ? '还没有打卡项，点下方添加' : '对方还没有自定义打卡项'}}
     </view>
 
-    <view class="hint" wx:if="{{isMe && grid.length}}">点击格子打卡 · 长按左侧名称可删除</view>
+    <view class="hint" wx:if="{{isMe && grid.length}}">今天打卡 +10 · 补卡 +5 · 不可打未来 · 长按名称删除</view>
     <view class="hint" wx:if="{{!isMe}}">正在查看 {{targetName}} 的打卡（只读）</view>
+  </view>
+
+  <!-- 组员本周进度 -->
+  <view class="progress-board" wx:if="{{weekProgress.length}}">
+    <view class="progress-title">周进度</view>
+    <view class="progress-sub"></view>
+    <view
+      class="progress-row {{item.isMe ? 'me' : ''}}"
+      wx:for="{{weekProgress}}"
+      wx:key="openid"
+    >
+      <view class="progress-name">
+        {{item.displayName}}
+        <text class="progress-me" wx:if="{{item.isMe}}">我</text>
+      </view>
+      <view class="progress-bar-wrap">
+        <view class="progress-bar-bg">
+          <view class="progress-bar-fill" style="width: {{item.percent}}%;"></view>
+        </view>
+      </view>
+      <view class="progress-pct">
+        <block wx:if="{{item.habitCount}}">{{item.percent}}%</block>
+        <block wx:else>—</block>
+      </view>
+    </view>
   </view>
 
   <button class="add-btn" wx:if="{{isMe}}" bindtap="openAdd">＋ 添加打卡项</button>
@@ -82,23 +112,16 @@
 <view class="mask" wx:if="{{showRename}}" bindtap="closeRename"></view>
 <view class="sheet" wx:if="{{showRename}}" catchtap="noop">
   <view class="sheet-title">群内显示名</view>
-  <view class="sheet-desc">这个名字会显示在群成员和打卡页</view>
-  <view class="sheet-label">微信一键选昵称</view>
+  <view class="sheet-desc">点输入框可选微信昵称，也可直接修改</view>
   <input
     class="sheet-input"
     type="nickname"
-    placeholder="点这里使用微信昵称"
-    value="{{nickDraft}}"
-    bindblur="onNickBlur"
-    bindchange="onNickBlur"
-  />
-  <view class="sheet-label">或手动输入</view>
-  <input
-    class="sheet-input"
-    placeholder="输入想展示的名字"
+    placeholder="输入或选择微信昵称"
     value="{{nickDraft}}"
     maxlength="20"
     bindinput="onNickInput"
+    bindblur="onNickBlur"
+    bindchange="onNickBlur"
   />
   <button class="sheet-ok" loading="{{savingNick}}" bindtap="saveNick">保存</button>
 </view>

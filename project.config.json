@@ -1,5 +1,5 @@
 {
-  "description": "FitBud — buddy fitness check-in & recommendations",
+  "description": "坚持有奖乱买要批 — 好友打卡与想买",
   "packOptions": {
     "ignore": [],
     "include": []
@@ -51,7 +51,7 @@
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",
   "appid": "wxae4a7679e4dabdb8",
-  "projectname": "FitBud",
+  "projectname": "坚持有奖乱买要批",
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",

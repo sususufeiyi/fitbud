@@ -1,7 +1,7 @@
 {
   "name": "shop",
   "version": "1.0.0",
-  "description": "FitBud 管住手 — shopping approval",
+  "description": "坚持有奖乱买要批 想买 — shopping approval",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"

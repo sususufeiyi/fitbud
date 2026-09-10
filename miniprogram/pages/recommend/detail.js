@@ -2,8 +2,10 @@ const { getCurrentGroup } = require('../../utils/group')
 
 const STATUS_MAP = {
   pending: '审批中',
-  approved: '可以购入',
-  rejected: '暂不建议'
+  approved: '可以买',
+  rejected: '不能买',
+  bought: '已经买啦',
+  redeemed: '已经买啦'
 }
 
 Page({

@@ -1,7 +1,7 @@
 {
   "name": "group",
   "version": "1.0.0",
-  "description": "FitBud group create/join/list",
+  "description": "坚持有奖乱买要批 group create/join/list",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"

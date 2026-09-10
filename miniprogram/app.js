@@ -20,7 +20,7 @@ App({
 
     const { cloudEnvId } = require('./config')
     if (!cloudEnvId) {
-      console.warn('[FitBud] 请先在 miniprogram/config.js 填写 cloudEnvId')
+      console.warn('[坚持有奖乱买要批] 请先在 miniprogram/config.js 填写 cloudEnvId')
     }
 
     wx.cloud.init({
@@ -79,7 +79,7 @@ App({
         return data
       })
       .catch((err) => {
-        console.error('[FitBud] login 失败', err)
+        console.error('[坚持有奖乱买要批] login 失败', err)
         return null
       })
   },

@@ -15,6 +15,26 @@ function dayKey(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/** 云函数常为 UTC，按北京时间算「今天」 */
+function chinaNow() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(new Date())
+  const get = (type) => Number((parts.find((p) => p.type === type) || {}).value)
+  return new Date(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+}
+
+function todayKey() {
+  return dayKey(chinaNow())
+}
+
 /** 周日为一周起点 */
 function weekRange(anchorDate) {
   const d = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate())
@@ -42,7 +62,7 @@ function parseAnchor(weekStart) {
     const [y, m, d] = weekStart.split('-').map(Number)
     return new Date(y, m - 1, d)
   }
-  return new Date()
+  return chinaNow()
 }
 
 async function findMember(groupId, openid) {
@@ -100,34 +120,110 @@ function yesterdayKey(day) {
   return dayKey(dt)
 }
 
-async function bumpStreakOnCheck(member, day) {
-  if (!member || !member._id) return member
-  if (member.lastCheckinDay === day) return member
+async function bumpPoints(member, baseGain, { updateStreak, day, groupId, openid }) {
+  if (!member || !member._id || !(baseGain > 0)) return { member, pointsGain: 0 }
 
-  let streak = 1
-  if (member.lastCheckinDay === yesterdayKey(day)) {
-    streak = (member.streak || 0) + 1
+  let pointsGain = baseGain
+  let streak = member.streak || 0
+  let lastCheckinDay = member.lastCheckinDay || ''
+  const data = {
+    totalCheckins: _.inc(1)
   }
-  let pointsGain = 10
-  if (streak > 0 && streak % 7 === 0) pointsGain += 20
 
+  let bonus = 0
+  if (updateStreak && lastCheckinDay !== day) {
+    streak = lastCheckinDay === yesterdayKey(day) ? (member.streak || 0) + 1 : 1
+    lastCheckinDay = day
+    data.streak = streak
+    data.lastCheckinDay = day
+    if (streak > 0 && streak % 7 === 0) {
+      bonus = 20
+      pointsGain += 20
+    }
+  }
+
+  data.points = _.inc(pointsGain)
+  await db.collection('group_members').doc(member._id).update({ data })
+
+  const nextPoints = (member.points || 0) + pointsGain
+  const oid = openid || member.openid || member._openid || ''
+  const gid = groupId || member.groupId || ''
+  if (gid && oid) {
+    const base = pointsGain - bonus
+    if (base > 0) {
+      await db.collection('point_logs').add({
+        data: {
+          groupId: gid,
+          openid: oid,
+          delta: base,
+          balance: (member.points || 0) + base,
+          reason: updateStreak ? 'checkin' : 'makeup',
+          title: updateStreak ? `打卡 +${base}` : `补卡 +${base}`,
+          refId: day || '',
+          createdAt: db.serverDate()
+        }
+      })
+    }
+    if (bonus > 0) {
+      await db.collection('point_logs').add({
+        data: {
+          groupId: gid,
+          openid: oid,
+          delta: bonus,
+          balance: nextPoints,
+          reason: 'streak_bonus',
+          title: `连续满 7 天 +${bonus}`,
+          refId: day || '',
+          createdAt: db.serverDate()
+        }
+      })
+    }
+  }
+
+  return {
+    member: {
+      ...member,
+      streak: data.streak != null ? streak : member.streak || 0,
+      totalCheckins: (member.totalCheckins || 0) + 1,
+      points: nextPoints,
+      lastCheckinDay: data.lastCheckinDay != null ? lastCheckinDay : member.lastCheckinDay || ''
+    },
+    pointsGain
+  }
+}
+
+async function revertPoints(member, pointsGain, { groupId, openid, day } = {}) {
+  if (!member || !member._id || !(pointsGain > 0)) return member
   await db
     .collection('group_members')
     .doc(member._id)
     .update({
       data: {
-        streak,
-        totalCheckins: _.inc(1),
-        points: _.inc(pointsGain),
-        lastCheckinDay: day
+        totalCheckins: _.inc(-1),
+        points: _.inc(-pointsGain)
       }
     })
+  const nextPoints = Math.max(0, (member.points || 0) - pointsGain)
+  const oid = openid || member.openid || member._openid || ''
+  const gid = groupId || member.groupId || ''
+  if (gid && oid) {
+    await db.collection('point_logs').add({
+      data: {
+        groupId: gid,
+        openid: oid,
+        delta: -pointsGain,
+        balance: nextPoints,
+        reason: 'checkin_revert',
+        title: `取消打卡 -${pointsGain}`,
+        refId: day || '',
+        createdAt: db.serverDate()
+      }
+    })
+  }
   return {
     ...member,
-    streak,
-    totalCheckins: (member.totalCheckins || 0) + 1,
-    points: (member.points || 0) + pointsGain,
-    lastCheckinDay: day
+    totalCheckins: Math.max(0, (member.totalCheckins || 0) - 1),
+    points: nextPoints
   }
 }
 
@@ -214,6 +310,12 @@ exports.main = async (event = {}) => {
       return { ok: false, error: 'invalid_params' }
     }
 
+    const today = todayKey()
+    if (day > today) {
+      return { ok: false, error: 'future_not_allowed' }
+    }
+    const isMakeup = day < today
+
     const habitDoc = await db.collection('habits').doc(habitId).get()
     const habit = habitDoc.data
     if (!habit || habit.groupId !== groupId) return { ok: false, error: 'not_found' }
@@ -221,52 +323,89 @@ exports.main = async (event = {}) => {
       return { ok: false, error: 'forbidden' }
     }
 
-    const found = await db
+    let found = await db
       .collection('checkins')
       .where({ groupId, openid: OPENID, habitId, day })
       .limit(1)
       .get()
-    let checked = false
-    let member = me
-
-    if (found.data[0]) {
-      await db.collection('checkins').doc(found.data[0]._id).remove()
-      checked = false
-    } else {
-      // 兼容旧数据也可能用 _openid
-      const found2 = await db
+    if (!found.data[0]) {
+      found = await db
         .collection('checkins')
         .where({ groupId, _openid: OPENID, habitId, day })
         .limit(1)
         .get()
-      if (found2.data[0]) {
-        await db.collection('checkins').doc(found2.data[0]._id).remove()
-        checked = false
-      } else {
-        const hadAny = await db
+    }
+
+    let checked = false
+    let member = me
+    let pointsGain = 0
+    let makeup = isMakeup
+
+    if (found.data[0]) {
+      // 取消打卡：有记过分则扣回，或转记到同日其它打卡上
+      const old = found.data[0]
+      const back = Number(old.pointsGain) || 0
+      await db.collection('checkins').doc(old._id).remove()
+      checked = false
+      makeup = !!old.isMakeup
+      if (back > 0) {
+        const left1 = await db
           .collection('checkins')
           .where({ groupId, openid: OPENID, day })
           .limit(1)
           .get()
-        const hadAny2 =
-          hadAny.data.length > 0
-            ? hadAny
+        const left =
+          left1.data.length > 0
+            ? left1
             : await db.collection('checkins').where({ groupId, _openid: OPENID, day }).limit(1).get()
-
-        await db.collection('checkins').add({
-          data: {
-            groupId,
-            openid: OPENID,
-            habitId,
-            day,
-            createdAt: db.serverDate()
-          }
-        })
-        checked = true
-        if (!hadAny2.data.length) {
-          member = await bumpStreakOnCheck(me, day)
+        if (left.data[0]) {
+          await db.collection('checkins').doc(left.data[0]._id).update({
+            data: { pointsGain: back }
+          })
+        } else {
+          member = await revertPoints(me, back, { groupId, openid: OPENID, day })
+          pointsGain = -back
         }
       }
+    } else {
+      // 新打卡
+      const hadAny = await db
+        .collection('checkins')
+        .where({ groupId, openid: OPENID, day })
+        .limit(1)
+        .get()
+      const hadAny2 =
+        hadAny.data.length > 0
+          ? hadAny
+          : await db.collection('checkins').where({ groupId, _openid: OPENID, day }).limit(1).get()
+      const isFirstOfDay = !hadAny2.data.length
+
+      pointsGain = 0
+      if (isFirstOfDay) {
+        const base = isMakeup ? 5 : 10
+        const bumped = await bumpPoints(me, base, {
+          updateStreak: !isMakeup,
+          day,
+          groupId,
+          openid: OPENID
+        })
+        member = bumped.member
+        pointsGain = bumped.pointsGain
+      }
+
+      await db.collection('checkins').add({
+        data: {
+          groupId,
+          openid: OPENID,
+          habitId,
+          day,
+          isMakeup,
+          pointsGain: isFirstOfDay ? pointsGain : 0,
+          createdAt: db.serverDate()
+        }
+      })
+      checked = true
+      makeup = isMakeup
     }
 
     return {
@@ -274,6 +413,8 @@ exports.main = async (event = {}) => {
       checked,
       day,
       habitId,
+      isMakeup: makeup,
+      pointsGain,
       streak: member.streak || 0,
       points: member.points || 0
     }
@@ -343,20 +484,88 @@ exports.main = async (event = {}) => {
     }
 
     const doneMap = {}
+    const makeupMap = {}
     checks.forEach((c) => {
       doneMap[`${c.habitId}_${c.day}`] = true
+      if (c.isMakeup) makeupMap[`${c.habitId}_${c.day}`] = true
     })
 
+    const todayStr = todayKey()
     const grid = habits.map((h) => ({
       habitId: h._id,
       name: h.name,
       emoji: h.emoji,
       color: h.color,
-      cells: days.map((d) => ({
-        day: d.key,
-        checked: !!doneMap[`${h._id}_${d.key}`]
-      }))
+      cells: days.map((d) => {
+        const future = d.key > todayStr
+        return {
+          day: d.key,
+          checked: !!doneMap[`${h._id}_${d.key}`],
+          isMakeup: !!makeupMap[`${h._id}_${d.key}`],
+          future,
+          canCheck: !future,
+          isToday: d.key === todayStr
+        }
+      })
     }))
+
+    // 全员本周进度：已打格 /（习惯数 × 截至今天的天数）
+    const eligibleDays = dayKeys.filter((k) => k <= todayStr)
+    const membersRes = await db.collection('group_members').where({ groupId }).limit(50).get()
+    const allHabitsRes = await db.collection('habits').where({ groupId }).limit(500).get()
+    const allChecksRes = await db
+      .collection('checkins')
+      .where({ groupId, day: _.in(dayKeys) })
+      .limit(1000)
+      .get()
+
+    const habitsByOid = {}
+    ;(allHabitsRes.data || []).forEach((h) => {
+      const oid = h.openid || h._openid || ''
+      if (!oid) return
+      if (!habitsByOid[oid]) habitsByOid[oid] = []
+      habitsByOid[oid].push(h._id)
+    })
+
+    const checkSetByOid = {}
+    ;(allChecksRes.data || []).forEach((c) => {
+      const oid = c.openid || c._openid || ''
+      if (!oid || !c.habitId || !c.day) return
+      if (!checkSetByOid[oid]) checkSetByOid[oid] = new Set()
+      checkSetByOid[oid].add(`${c.habitId}_${c.day}`)
+    })
+
+    const weekProgress = (membersRes.data || [])
+      .map((m) => {
+        const oid = m.openid || m._openid || ''
+        const nick = (m.nickName || '').trim()
+        const habitIds = habitsByOid[oid] || []
+        const habitCount = habitIds.length
+        const total = habitCount * eligibleDays.length
+        let done = 0
+        if (total > 0) {
+          const set = checkSetByOid[oid] || new Set()
+          habitIds.forEach((hid) => {
+            eligibleDays.forEach((dk) => {
+              if (set.has(`${hid}_${dk}`)) done += 1
+            })
+          })
+        }
+        const percent = total > 0 ? Math.round((done / total) * 100) : 0
+        return {
+          openid: oid,
+          displayName: nick || `Buddy ${String(oid).slice(-4) || '??'}`,
+          isMe: oid === OPENID,
+          habitCount,
+          done,
+          total,
+          percent
+        }
+      })
+      .sort((a, b) => {
+        if (a.isMe !== b.isMe) return a.isMe ? -1 : 1
+        return b.percent - a.percent
+      })
 
     const targetOid = pair.target.openid || pair.target._openid || targetOpenid
     const nick = (pair.target.nickName || '').trim()
@@ -368,12 +577,13 @@ exports.main = async (event = {}) => {
       days,
       habits,
       grid,
+      weekProgress,
       isMe: targetOpenid === OPENID,
       targetOpenid,
       targetName: nick || `Buddy ${String(targetOid).slice(-4)}`,
       streak: pair.target.streak || 0,
       points: pair.target.points || 0,
-      today: dayKey(new Date())
+      today: todayStr
     }
   }
 

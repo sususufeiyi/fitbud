@@ -2,8 +2,8 @@
 
   <!-- ========== 首次 / 未入群：只展示创建或加入 ========== -->
   <block wx:if="{{mode === 'onboarding'}}">
-    <view class="hero-title">FitBud</view>
-    <view class="hero-sub">和好朋友一起打卡、管住手、拿奖励</view>
+    <view class="hero-title">坚持有奖乱买要批</view>
+    <view class="hero-sub">和好朋友一起打卡、想买、拿奖励</view>
     <view class="tip" wx:if="{{tip}}">{{tip}}</view>
 
     <view class="section-title">创建群组</view>
@@ -35,7 +35,10 @@
 
   <!-- ========== 已入群：群信息 + 邀请 + 成员；底部显示 Tab ========== -->
   <block wx:else>
-    <view class="hero-title">{{currentGroup.name}}</view>
+    <view class="hero-title-row">
+      <view class="hero-title">{{currentGroup.name}}</view>
+      <view class="rename-icon" bindtap="openRenameGroup" hover-class="rename-icon-hover">✎</view>
+    </view>
     <view class="hero-sub">当前群组 · 可邀请好友一起</view>
     <view class="tip" wx:if="{{tip}}">{{tip}}</view>
 
@@ -103,4 +106,20 @@
 
 <view class="page" wx:else>
   <view class="hero-sub">加载中…</view>
+</view>
+
+<!-- 修改群名称 -->
+<view class="mask" wx:if="{{showRenameGroup}}" bindtap="closeRenameGroup"></view>
+<view class="sheet" wx:if="{{showRenameGroup}}" catchtap="noop">
+  <view class="sheet-title">修改群名称</view>
+  <view class="sheet-desc">群内任意成员都可以改名</view>
+  <input
+    class="sheet-input"
+    placeholder="输入新的群名称"
+    value="{{groupNameDraft}}"
+    maxlength="20"
+    focus="{{showRenameGroup}}"
+    bindinput="onGroupNameInput"
+  />
+  <button class="sheet-ok" loading="{{savingGroupName}}" bindtap="saveGroupName">保存</button>
 </view>

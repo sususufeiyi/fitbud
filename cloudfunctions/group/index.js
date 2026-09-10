@@ -38,7 +38,7 @@ async function getMembership(groupId, openid) {
 }
 
 /**
- * event.action: create | join | list | detail | members | select
+ * event.action: create | join | list | detail | members | select | rename
  */
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
@@ -297,6 +297,32 @@ exports.main = async (event = {}) => {
         role: membership.role || 'member'
       },
       membership
+    }
+  }
+
+  if (action === 'rename') {
+    const groupId = event.groupId
+    const name = String(event.name || '').trim().slice(0, 20)
+    if (!groupId) return { ok: false, error: 'group_required' }
+    if (!name) return { ok: false, error: 'name_required' }
+
+    const membership = await getMembership(groupId, OPENID)
+    if (!membership) return { ok: false, error: 'not_member' }
+
+    await groups.doc(groupId).update({
+      data: {
+        name,
+        updatedAt: db.serverDate()
+      }
+    })
+    const group = (await groups.doc(groupId).get()).data || {}
+    return {
+      ok: true,
+      group: {
+        ...group,
+        _id: groupId,
+        name
+      }
     }
   }
 

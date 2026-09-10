@@ -1,39 +1,73 @@
 <view class="page">
   <view class="hero-title">坚持奖励</view>
-  <view class="hero-sub">{{groupName || '未选择群组'}} · 连续打卡解锁</view>
+  <view class="hero-sub">{{groupName || '未选择群组'}} · 连续 / 总打卡可领奖励</view>
 
   <block wx:if="{{!locked}}">
     <view class="stats">
-      <view class="stat">
+      <view class="stat tap" data-type="streak" bindtap="openRewards">
         <view class="stat-num">{{streak}}</view>
         <view class="stat-label">连续</view>
+        <view class="stat-hint">点看奖励</view>
       </view>
-      <view class="stat">
+      <view class="stat tap" data-type="total" bindtap="openRewards">
         <view class="stat-num">{{totalCheckins}}</view>
         <view class="stat-label">总打卡</view>
+        <view class="stat-hint">点看奖励</view>
       </view>
-      <view class="stat">
+      <view class="stat tap" bindtap="openPointLogs">
         <view class="stat-num">{{points}}</view>
         <view class="stat-label">积分</view>
-      </view>
-    </view>
-
-    <view class="list">
-      <view class="item" wx:for="{{milestones}}" wx:key="days">
-        <view class="item-main">
-          <view class="item-title">{{item.title}}</view>
-          <view class="item-sub">连续 {{item.days}} 天 · +{{item.points}} 分</view>
-        </view>
-        <button
-          class="claim"
-          size="mini"
-          disabled="{{!item.unlocked || item.claimed}}"
-          data-days="{{item.days}}"
-          bindtap="claim"
-        >
-          {{item.claimed ? '已领' : (item.unlocked ? '领取' : '未解锁')}}
-        </button>
+        <view class="stat-hint">点看明细</view>
       </view>
     </view>
   </block>
+</view>
+
+<!-- 奖励弹窗 -->
+<view class="mask" wx:if="{{showRewards}}" bindtap="closeRewards"></view>
+<view class="sheet" wx:if="{{showRewards}}" catchtap="noop">
+  <view class="sheet-head">
+    <view class="sheet-title">{{sheetTitle}}</view>
+    <view class="sheet-close" bindtap="closeRewards">关闭</view>
+  </view>
+  <view class="sheet-desc">{{sheetDesc}}</view>
+  <view class="item {{item.claimed ? 'claimed' : ''}}" wx:for="{{sheetList}}" wx:key="threshold">
+    <view class="item-main">
+      <view class="item-title">{{item.title}}</view>
+      <view class="item-sub">
+        <block wx:if="{{rewardType === 'streak'}}">连续 {{item.threshold}} 天 · +{{item.points}} 分</block>
+        <block wx:else>累计 {{item.threshold}} 次 · +{{item.points}} 分</block>
+      </view>
+    </view>
+    <button
+      class="claim {{item.claimed ? 'done' : ''}}"
+      size="mini"
+      disabled="{{!item.unlocked || item.claimed}}"
+      data-threshold="{{item.threshold}}"
+      bindtap="claim"
+    >
+      {{item.claimed ? '已领取' : (item.unlocked ? '领取' : '未解锁')}}
+    </button>
+  </view>
+</view>
+
+<!-- 积分明细 -->
+<view class="mask" wx:if="{{showPointLogs}}" bindtap="closePointLogs"></view>
+<view class="sheet" wx:if="{{showPointLogs}}" catchtap="noop">
+  <view class="sheet-head">
+    <view class="sheet-title">积分明细</view>
+    <view class="sheet-close" bindtap="closePointLogs">关闭</view>
+  </view>
+  <view class="sheet-desc">当前 {{points}} 分 · 1 积分抵 ¥10</view>
+  <view class="tip muted" wx:if="{{logsLoading}}">加载中…</view>
+  <view class="log-empty" wx:if="{{!logsLoading && !pointLogs.length}}">暂无流水，打卡或兑换后会出现</view>
+  <view class="log-item" wx:for="{{pointLogs}}" wx:key="_id">
+    <view class="log-main">
+      <view class="log-title">{{item.title}}</view>
+      <view class="log-time">{{item.timeText}}</view>
+    </view>
+    <view class="log-delta {{item.delta >= 0 ? 'plus' : 'minus'}}">
+      {{item.delta >= 0 ? '+' : ''}}{{item.delta}}
+    </view>
+  </view>
 </view>

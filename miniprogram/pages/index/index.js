@@ -1,5 +1,6 @@
 const {
   getCurrentGroup,
+  setCurrentGroup,
   clearCurrentGroup,
   syncTabBar,
   enterGroup
@@ -20,7 +21,10 @@ Page({
     nickDraft: '',
     loading: false,
     savingNick: false,
-    tip: ''
+    tip: '',
+    showRenameGroup: false,
+    groupNameDraft: '',
+    savingGroupName: false
   },
 
   onLoad(query) {
@@ -48,12 +52,12 @@ Page({
     const g = this.data.currentGroup || getCurrentGroup()
     if (g && g.inviteCode) {
       return {
-        title: `邀请你加入 FitBud「${g.name}」一起打卡`,
+        title: `来「${g.name}」一起｜坚持有奖乱买要批`,
         path: `/pages/index/index?invite=${g.inviteCode}`
       }
     }
     return {
-      title: 'FitBud — 和好朋友一起健身打卡',
+      title: '坚持有奖乱买要批｜和好朋友打卡、想买',
       path: '/pages/index/index'
     }
   },
@@ -284,5 +288,68 @@ Page({
   leaveToOnboarding() {
     // 仅切换 UI 到可建/加其他群，不清空当前群数据；用「切换/新建」
     this.setData({ showMoreGroups: !this.data.showMoreGroups })
+  },
+
+  noop() {},
+
+  openRenameGroup() {
+    const g = this.data.currentGroup
+    if (!g || !g._id) return
+    this.setData({
+      showRenameGroup: true,
+      groupNameDraft: g.name || ''
+    })
+  },
+
+  closeRenameGroup() {
+    this.setData({ showRenameGroup: false })
+  },
+
+  onGroupNameInput(e) {
+    this.setData({ groupNameDraft: e.detail.value })
+  },
+
+  saveGroupName() {
+    const name = (this.data.groupNameDraft || '').trim()
+    const g = this.data.currentGroup
+    if (!g || !g._id) return
+    if (!name) {
+      wx.showToast({ title: '请输入群名称', icon: 'none' })
+      return
+    }
+    if (name === g.name) {
+      this.setData({ showRenameGroup: false })
+      return
+    }
+    if (this.data.savingGroupName) return
+    this.setData({ savingGroupName: true })
+    wx.cloud
+      .callFunction({
+        name: 'group',
+        data: { action: 'rename', groupId: g._id, name }
+      })
+      .then((res) => {
+        const r = res.result || {}
+        if (!r.ok || !r.group) {
+          wx.showToast({
+            title: r.error === 'not_member' ? '你不在该群' : '改名失败',
+            icon: 'none'
+          })
+          return
+        }
+        const next = { ...g, ...r.group, name: r.group.name || name }
+        setCurrentGroup(next)
+        const groups = (this.data.groups || []).map((item) =>
+          item._id === next._id ? { ...item, name: next.name } : item
+        )
+        this.setData({
+          currentGroup: next,
+          groups,
+          showRenameGroup: false
+        })
+        wx.showToast({ title: '已改名', icon: 'success' })
+      })
+      .catch(() => wx.showToast({ title: '请先部署 group', icon: 'none' }))
+      .finally(() => this.setData({ savingGroupName: false }))
   }
 })

@@ -13,6 +13,10 @@
   box-shadow: var(--shadow-card);
 }
 
+.stat.tap:active {
+  opacity: 0.85;
+}
+
 .stat-num {
   font-size: 36rpx;
   font-weight: 700;
@@ -25,6 +29,12 @@
   color: var(--color-muted);
 }
 
+.stat-hint {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: var(--color-accent);
+}
+
 .item {
   display: flex;
   align-items: center;
@@ -32,9 +42,17 @@
   gap: 16rpx;
   margin-bottom: 16rpx;
   padding: 28rpx;
-  background: var(--color-card);
+  background: #fff8f2;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+}
+
+.item:last-child {
+  margin-bottom: 0;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
 }
 
 .item-title {
@@ -49,7 +67,123 @@
 }
 
 .claim {
+  margin: 0 0 0 auto !important;
+  flex-shrink: 0;
   background: var(--color-accent) !important;
   color: #fff !important;
   border-radius: 999rpx !important;
+}
+
+.claim.done,
+.claim[disabled].done {
+  background: #e8ddd3 !important;
+  color: #8a7364 !important;
+}
+
+.item.claimed {
+  opacity: 0.92;
+}
+
+.mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(92, 70, 56, 0.35);
+  z-index: 100;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 101;
+  max-height: 78vh;
+  overflow-y: auto;
+  padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom));
+  background: #fffaf5;
+  border-radius: 40rpx 40rpx 0 0;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.sheet-close {
+  font-size: 26rpx;
+  color: var(--color-muted);
+  padding: 8rpx 4rpx;
+}
+
+.sheet-desc {
+  margin-bottom: 24rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
+}
+
+.log-empty {
+  padding: 40rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted);
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--color-line);
+}
+
+.log-item:last-child {
+  border-bottom: none;
+}
+
+.log-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-title {
+  font-size: 28rpx;
+  color: var(--color-ink);
+}
+
+.log-time {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted);
+}
+
+.log-delta {
+  flex-shrink: 0;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.log-delta.plus {
+  color: #3d6b52;
+}
+
+.log-delta.minus {
+  color: #c45c5c;
+}
+
+.tip.muted {
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
+  color: var(--color-muted);
 }

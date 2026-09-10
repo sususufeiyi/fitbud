@@ -8,7 +8,7 @@
     "pages/rewards/rewards"
   ],
   "window": {
-    "navigationBarTitleText": "FitBud",
+    "navigationBarTitleText": "坚持有奖乱买要批",
     "navigationBarBackgroundColor": "#fff6ec",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#fff6ec",
@@ -30,7 +30,7 @@
       },
       {
         "pagePath": "pages/recommend/recommend",
-        "text": "管住手"
+        "text": "想买"
       },
       {
         "pagePath": "pages/rewards/rewards",

@@ -1,7 +1,7 @@
 {
   "name": "login",
   "version": "1.0.0",
-  "description": "FitBud login — ensure user document",
+  "description": "坚持有奖乱买要批 login — ensure user document",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"
