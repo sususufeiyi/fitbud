@@ -4,7 +4,90 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-const CATEGORIES = ['数码', '美妆', '文娱', '食品', '服饰', '家居', '其他']
+const CATEGORIES = ['吃喝', '玩乐', '学习', '运动', '居家', '数码', '其他']
+
+/** 与 config 云函数同一开关：showWantTodo !== true 则功能关闭 */
+async function isWantTodoEnabled() {
+  try {
+    const res = await db.collection('app_config').doc('main').get()
+    return !!(res.data && res.data.showWantTodo === true)
+  } catch (e) {
+    return false
+  }
+}
+
+/** 朋友想法提醒 · thing1 + time2 */
+const REVIEW_TMPL_ID = 'T3fYlBrSptEuKAUE1mEdhDyMQh0WKi7OHAV8I7LXbSs'
+
+function clipThing(s) {
+  const t = String(s || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .trim()
+  if (!t) return '朋友想听听你的想法'
+  return t.slice(0, 20)
+}
+
+/** 订阅消息 time 类型：yyyy年MM月dd日 HH:mm */
+function formatSubscribeTime(date) {
+  const d = date instanceof Date ? date : new Date()
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d)
+  const get = (type) => (parts.find((p) => p.type === type) || {}).value || '00'
+  return `${get('year')}年${Number(get('month'))}月${Number(get('day'))}日 ${get('hour')}:${get('minute')}`
+}
+
+async function notifyReviewers({ openids, itemId, groupId, thing, when }) {
+  const list = (openids || []).filter(Boolean)
+  if (!list.length || !itemId || !REVIEW_TMPL_ID) return
+  const page = `pages/recommend/detail?id=${itemId}&groupId=${groupId || ''}`
+  const data = {
+    thing1: { value: clipThing(thing) },
+    time2: { value: when || formatSubscribeTime() }
+  }
+  await Promise.all(
+    list.map((touser) =>
+      cloud.openapi.subscribeMessage
+        .send({
+          touser,
+          templateId: REVIEW_TMPL_ID,
+          page,
+          data,
+          miniprogramState: 'formal'
+        })
+        .catch((err) => {
+          console.warn('[shop] subscribe send fail', touser.slice(-4), err && err.errMsg)
+        })
+    )
+  )
+}
+
+/** 云文件转临时 HTTPS，群友才能看到别人上传的图 */
+async function resolvePhotoUrls(photos) {
+  const list = (photos || []).filter(Boolean).map(String)
+  if (!list.length) return []
+  const cloudIds = list.filter((p) => p.startsWith('cloud://'))
+  if (!cloudIds.length) return list
+  try {
+    const res = await cloud.getTempFileURL({ fileList: cloudIds.slice(0, 50) })
+    const map = {}
+    ;(res.fileList || []).forEach((f) => {
+      if (f && f.fileID && f.tempFileURL && (f.status === 0 || f.status == null)) {
+        map[f.fileID] = f.tempFileURL
+      }
+    })
+    return list.map((p) => map[p] || p)
+  } catch (e) {
+    console.warn('[shop] getTempFileURL', e && e.message)
+    return list
+  }
+}
 
 async function listMembers(groupId) {
   const res = await db.collection('group_members').where({ groupId }).limit(50).get()
@@ -76,7 +159,7 @@ function finalizeStatus(item) {
 }
 
 /**
- * action: list | create | detail | vote | redeem | markBought
+ * action: list | create | detail | vote | redeem | markBought | remove
  */
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
@@ -90,6 +173,10 @@ exports.main = async (event = {}) => {
 
   if (action === 'categories') {
     return { ok: true, list: CATEGORIES }
+  }
+
+  if (!(await isWantTodoEnabled())) {
+    return { ok: false, error: 'feature_disabled' }
   }
 
   const me = await requireMember(groupId, OPENID)
@@ -113,6 +200,7 @@ exports.main = async (event = {}) => {
         const cost = pointsNeeded(item.price)
         const showRedeem =
           isAuthor && (item.status === 'pending' || item.status === 'rejected') && cost > 0
+        // 「可以买」仅群审通过，可点「买！」
         const showBuy = isAuthor && item.status === 'approved'
         return {
           _id: item._id,
@@ -125,13 +213,14 @@ exports.main = async (event = {}) => {
           isExpensive: !!item.isExpensive,
           isLuxury: !!item.isLuxury,
           status: item.status,
+          filterStatus: item.status,
           photoCount: (item.photos || []).length,
           cover: (item.photos && item.photos[0]) || '',
           authorOpenid: item.authorOpenid,
           authorName: nameMap[item.authorOpenid] || '成员',
           isAuthor,
           voteProgress: `${votes.length}/${required.length || 0}`,
-          needMyVote: !isAuthor && required.includes(OPENID) && !myVote,
+          needMyVote: !isAuthor && required.includes(OPENID) && !myVote && item.status === 'pending',
           createdAt: item.createdAt,
           showRedeem,
           redeemCost: cost,
@@ -199,6 +288,23 @@ exports.main = async (event = {}) => {
     })
 
     const doc = (await col.doc(addRes._id).get()).data
+
+    if (requiredVoters.length) {
+      const authorLabel = displayName(me, OPENID)
+      const thing = `${authorLabel}想做${name}`
+      try {
+        await notifyReviewers({
+          openids: requiredVoters,
+          itemId: addRes._id,
+          groupId,
+          thing,
+          when: formatSubscribeTime()
+        })
+      } catch (e) {
+        console.warn('[shop] notifyReviewers', e && e.message)
+      }
+    }
+
     return { ok: true, item: { ...doc, _id: addRes._id } }
   }
 
@@ -232,11 +338,14 @@ exports.main = async (event = {}) => {
       !myVote &&
       item.status === 'pending'
 
+    const photos = await resolvePhotoUrls(item.photos)
+
     return {
       ok: true,
       item: {
         ...item,
         _id: id,
+        photos,
         authorName: nameMap[item.authorOpenid] || '成员',
         isAuthor,
         votes,
@@ -246,6 +355,17 @@ exports.main = async (event = {}) => {
         unitLabel: item.usageUnit === 'times' ? '次均价' : '日均价'
       }
     }
+  }
+
+  if (action === 'remove') {
+    const id = event.id
+    if (!id) return { ok: false, error: 'id_required' }
+    const doc = await col.doc(id).get()
+    const item = doc.data
+    if (!item || item.groupId !== groupId) return { ok: false, error: 'not_found' }
+    if (item.authorOpenid !== OPENID) return { ok: false, error: 'forbidden' }
+    await col.doc(id).remove()
+    return { ok: true }
   }
 
   if (action === 'vote') {
@@ -315,12 +435,13 @@ exports.main = async (event = {}) => {
     await db.collection('group_members').doc(me._id).update({
       data: { points: _.inc(-cost) }
     })
-    // 积分兑换成功 → 进入「可以买」
+    // 积分兑换成功 → 直接「已经买啦」
     await col.doc(id).update({
       data: {
-        status: 'approved',
+        status: 'bought',
         viaPoints: true,
         pointsRedeemedAt: db.serverDate(),
+        boughtAt: db.serverDate(),
         redeemCost: cost,
         updatedAt: db.serverDate()
       }
@@ -331,11 +452,11 @@ exports.main = async (event = {}) => {
       delta: -cost,
       balance: nextPoints,
       reason: 'shop_redeem',
-      title: `兑换「${item.name || '想买'}」`,
+      title: `兑现「${item.name || '想做的事'}」`,
       refId: id
     })
 
-    return { ok: true, cost, points: nextPoints, status: 'approved' }
+    return { ok: true, cost, points: nextPoints, status: 'bought' }
   }
 
   if (action === 'markBought') {
@@ -346,7 +467,9 @@ exports.main = async (event = {}) => {
     const item = doc.data
     if (!item || item.groupId !== groupId) return { ok: false, error: 'not_found' }
     if (item.authorOpenid !== OPENID) return { ok: false, error: 'forbidden' }
-    if (item.status !== 'approved') return { ok: false, error: 'not_buyable' }
+    if (item.status !== 'approved' && item.status !== 'ready') {
+      return { ok: false, error: 'not_buyable' }
+    }
 
     await col.doc(id).update({
       data: {

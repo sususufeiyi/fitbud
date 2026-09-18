@@ -1,38 +1,48 @@
-const { requireGroup, getCurrentGroup, syncTabBar } = require('../../utils/group')
+const { requireGroup, getCurrentGroup, syncTabBar, setTabSelected } = require('../../utils/group')
+const { requestReviewSubscribe } = require('../../utils/subscribe')
+const { guardWantTodoOrLeave } = require('../../utils/features')
 
 const STATUS_MAP = {
-  pending: '审批中',
-  approved: '可以买',
-  rejected: '不能买',
-  bought: '已经买啦',
-  redeemed: '已经买啦' // 旧数据兼容
+  pending: '等回复',
+  approved: '可以做',
+  rejected: '先缓缓',
+  bought: '做过了',
+  ready: '积分已兑',
+  redeemed: '做过了'
 }
 
 const FILTERS = [
-  { key: 'pending', label: '现在想买' },
-  { key: 'approved', label: '可以买' },
-  { key: 'rejected', label: '不能买' },
-  { key: 'bought', label: '已经买啦' }
+  { key: 'pending', label: '等回复' },
+  { key: 'approved', label: '可以做' },
+  { key: 'rejected', label: '先缓缓' },
+  { key: 'bought', label: '做过了' }
 ]
 
 const EMPTY_TIP = {
-  pending: '还没有审批中的想买',
-  approved: '还没有可以买的',
-  rejected: '还没有不能买的',
-  bought: '还没有已经买的'
+  pending: '还没有人说说想做什么',
+  approved: '还没有可以去做的',
+  rejected: '还没有先缓缓的',
+  bought: '还没有做过的记录'
 }
 
-function matchFilter(status, filterKey) {
-  if (filterKey === 'bought') return status === 'bought' || status === 'redeemed'
-  return status === filterKey
+/** 四分类：可以买=群审通过；积分兑换直接进已经买啦 */
+function bucketOf(item) {
+  const s = item.status
+  if (s === 'bought' || s === 'redeemed') return 'bought'
+  // 旧 ready（积分已兑未点买）仍归可以买，方便点「买！」
+  if (s === 'ready') return 'approved'
+  if (s === 'rejected') return 'rejected'
+  if (s === 'approved') return 'approved'
+  return 'pending'
 }
 
 Page({
   data: {
     locked: false,
-    loading: false,
+    loading: true,
     list: [],
     filteredList: [],
+    skeletonRows: [1, 2, 3],
     filters: FILTERS,
     filterKey: 'pending',
     filterCounts: {
@@ -47,22 +57,39 @@ Page({
   },
 
   onShow() {
-    const group = requireGroup()
-    if (!group) {
-      this.setData({ locked: true, tip: '请先创建或加入群组' })
+    if (!guardWantTodoOrLeave()) return
+    const app = getApp()
+    const apply = (group) => {
+      if (!group || !group._id) {
+        this.setData({ locked: true, tip: '正在准备…' })
+        return
+      }
+      syncTabBar(true)
+      setTabSelected(this, 'recommend')
+      this.setData({
+        locked: false,
+        tip: '',
+        loading: !(this.data.filteredList || []).length
+      })
+      this.loadList()
+    }
+
+    const local = requireGroup()
+    if (local) {
+      apply(local)
       return
     }
-    syncTabBar(true)
-    this.setData({
-      locked: false,
-      tip: ''
-    })
-    this.loadList()
+
+    const ready = (app && app.whenReady) || (() => Promise.resolve({ group: null }))
+    ready
+      .call(app)
+      .then((r) => apply((r && r.group) || getCurrentGroup()))
+      .catch(() => apply(getCurrentGroup()))
   },
 
   applyFilter(list, filterKey) {
     const key = filterKey || this.data.filterKey || 'pending'
-    const filteredList = (list || []).filter((item) => matchFilter(item.status, key))
+    const filteredList = (list || []).filter((item) => bucketOf(item) === key)
     const filterCounts = {
       pending: 0,
       approved: 0,
@@ -70,8 +97,8 @@ Page({
       bought: 0
     }
     ;(list || []).forEach((item) => {
-      if (item.status === 'bought' || item.status === 'redeemed') filterCounts.bought += 1
-      else if (filterCounts[item.status] != null) filterCounts[item.status] += 1
+      const b = bucketOf(item)
+      if (filterCounts[b] != null) filterCounts[b] += 1
     })
     return {
       filterKey: key,
@@ -99,11 +126,20 @@ Page({
           })
           return
         }
-        const list = (r.list || []).map((item) => ({
-          ...item,
-          statusText: STATUS_MAP[item.status] || item.status,
-          statusClass: item.status === 'redeemed' ? 'bought' : item.status
-        }))
+        const list = (r.list || []).map((item) => {
+          const status = item.status
+          let statusClass = status
+          if (status === 'redeemed' || status === 'ready') {
+            statusClass = status === 'ready' ? 'approved' : 'bought'
+          }
+          return {
+            ...item,
+            statusText: STATUS_MAP[status] || status,
+            statusClass,
+            // 旧 ready 仍可点买
+            showBuy: item.showBuy || (item.isAuthor && status === 'ready')
+          }
+        })
         this.setData({
           list,
           myPoints: r.myPoints || 0,
@@ -126,13 +162,17 @@ Page({
   },
 
   goPublish() {
-    wx.navigateTo({ url: '/pages/recommend/publish' })
+    requestReviewSubscribe().finally(() => {
+      wx.navigateTo({ url: '/pages/recommend/publish' })
+    })
   },
 
   goDetail(e) {
     const id = e.currentTarget.dataset.id
     if (!id) return
-    wx.navigateTo({ url: `/pages/recommend/detail?id=${id}` })
+    requestReviewSubscribe().finally(() => {
+      wx.navigateTo({ url: `/pages/recommend/detail?id=${id}` })
+    })
   },
 
   onRedeem(e) {
@@ -152,9 +192,9 @@ Page({
     if (!group) return
 
     wx.showModal({
-      title: '积分兑换',
-      content: `将消耗 ${cost} 积分（约抵 ¥${cost * 10}），兑换后进入「可以买」，确认？`,
-      confirmText: '兑换',
+      title: '积分兑现',
+      content: `将消耗 ${cost} 积分（约抵 ¥${cost * 10}），兑现后记入「做过了」，确认？`,
+      confirmText: '兑现',
       success: (res) => {
         if (!res.confirm) return
         wx.cloud
@@ -167,15 +207,15 @@ Page({
             if (!result.ok) {
               const map = {
                 not_enough_points: '积分不足',
-                forbidden: '只能兑换自己的',
-                not_redeemable: '当前状态不可兑',
-                already_redeemed: '已兑换过'
+                forbidden: '只能兑现自己的',
+                not_redeemable: '当前还不能兑现',
+                already_redeemed: '已兑现过'
               }
-              wx.showToast({ title: map[result.error] || '兑换失败', icon: 'none' })
+              wx.showToast({ title: map[result.error] || '兑现失败', icon: 'none' })
               return
             }
-            wx.showToast({ title: `已兑换 -${result.cost}`, icon: 'success' })
-            this.setData({ filterKey: 'approved' })
+            wx.showToast({ title: `已兑现 -${result.cost}`, icon: 'success' })
+            this.setData({ filterKey: 'bought' })
             this.loadList()
           })
           .catch(() => wx.showToast({ title: '网络错误', icon: 'none' }))
@@ -190,9 +230,8 @@ Page({
     if (!group) return
 
     wx.showModal({
-      title: '确认购买',
-      content: '标记为已经买啦？',
-      confirmText: '买！',
+      title: '确认完成？',
+      confirmText: '完成',
       success: (res) => {
         if (!res.confirm) return
         wx.cloud
@@ -205,13 +244,51 @@ Page({
             if (!result.ok) {
               const map = {
                 forbidden: '只能操作自己的',
-                not_buyable: '当前还不能买'
+                not_buyable: '当前还不能完成'
               }
               wx.showToast({ title: map[result.error] || '操作失败', icon: 'none' })
               return
             }
-            wx.showToast({ title: '已经买啦', icon: 'success' })
+            wx.showToast({ title: '已完成', icon: 'success' })
             this.setData({ filterKey: 'bought' })
+            this.loadList()
+          })
+          .catch(() => wx.showToast({ title: '网络错误', icon: 'none' }))
+      }
+    })
+  },
+
+  onDeleteItem(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id) return
+    const item = (this.data.list || []).find((x) => x._id === id)
+    if (item && !item.isAuthor) {
+      wx.showToast({ title: '只能删自己的', icon: 'none' })
+      return
+    }
+    const group = getCurrentGroup()
+    if (!group) return
+    wx.showModal({
+      title: '删掉这条',
+      content: '确定删掉这条想做的事吗？',
+      confirmColor: '#c45c5c',
+      success: (res) => {
+        if (!res.confirm) return
+        wx.cloud
+          .callFunction({
+            name: 'shop',
+            data: { action: 'remove', groupId: group._id, id }
+          })
+          .then((r) => {
+            const result = r.result || {}
+            if (!result.ok) {
+              wx.showToast({
+                title: result.error === 'forbidden' ? '只能删自己的' : '删除失败',
+                icon: 'none'
+              })
+              return
+            }
+            wx.showToast({ title: '已删除', icon: 'none' })
             this.loadList()
           })
           .catch(() => wx.showToast({ title: '网络错误', icon: 'none' }))

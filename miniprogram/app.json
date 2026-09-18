@@ -1,11 +1,11 @@
 {
   "pages": [
-    "pages/index/index",
     "pages/checkin/checkin",
+    "pages/index/index",
     "pages/recommend/recommend",
+    "pages/rewards/rewards",
     "pages/recommend/publish",
-    "pages/recommend/detail",
-    "pages/rewards/rewards"
+    "pages/recommend/detail"
   ],
   "window": {
     "navigationBarTitleText": "坚持有奖乱买要批",
@@ -15,22 +15,19 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
+    "custom": true,
     "color": "#a89888",
     "selectedColor": "#e8917a",
     "backgroundColor": "#fffaf5",
     "borderStyle": "white",
     "list": [
       {
-        "pagePath": "pages/index/index",
-        "text": "群组"
-      },
-      {
         "pagePath": "pages/checkin/checkin",
         "text": "打卡"
       },
       {
         "pagePath": "pages/recommend/recommend",
-        "text": "想买"
+        "text": "想做什么"
       },
       {
         "pagePath": "pages/rewards/rewards",

@@ -162,6 +162,35 @@
   color: #c45c5c;
 }
 
+.preset-label {
+  margin: 4rpx 0 12rpx;
+  font-size: 22rpx;
+  color: var(--color-muted);
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.preset-chip {
+  padding: 10rpx 18rpx;
+  font-size: 22rpx;
+  background: #fff6ec;
+  color: var(--color-ink);
+  border-radius: 999rpx;
+  border: 2rpx solid transparent;
+}
+
+.preset-chip.on {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 .textarea {
   width: 100%;
   min-height: 160rpx;
@@ -177,4 +206,13 @@
   margin-top: 20rpx;
   background: var(--color-accent) !important;
   border-radius: 999rpx !important;
+}
+
+.del-btn {
+  margin-top: 32rpx;
+  background: transparent !important;
+  color: #c45c5c !important;
+  border: 2rpx solid #f0c4c4 !important;
+  border-radius: 999rpx !important;
+  font-weight: 600 !important;
 }

@@ -37,8 +37,111 @@ async function getMembership(groupId, openid) {
   return res.data[0] || null
 }
 
+async function listMyMemberships(members, openid) {
+  let mine = await members.where({ openid }).limit(50).get()
+  if (!(mine.data || []).length) {
+    mine = await members.where({ _openid: openid }).limit(50).get()
+  }
+  return mine.data || []
+}
+
+async function createGroupForUser({ groups, members, users, openid, name, isPersonal }) {
+  const inviteCode = await ensureUniqueInviteCode()
+  const addRes = await groups.add({
+    data: {
+      name,
+      inviteCode,
+      memberCount: 1,
+      ownerOpenid: openid,
+      isPersonal: !!isPersonal,
+      createdAt: db.serverDate()
+    }
+  })
+
+  const me = await users.where({ _openid: openid }).limit(1).get()
+  const myNick = ((me.data[0] && me.data[0].nickName) || '').trim()
+
+  await members.add({
+    data: {
+      groupId: addRes._id,
+      openid,
+      role: 'owner',
+      nickName: myNick,
+      streak: 0,
+      totalCheckins: 0,
+      points: 0,
+      lastCheckinDay: '',
+      joinedAt: db.serverDate()
+    }
+  })
+
+  await users.where({ _openid: openid }).update({
+    data: { currentGroupId: addRes._id, updatedAt: db.serverDate() }
+  })
+
+  const groupDoc = (await groups.doc(addRes._id).get()).data || {}
+  return {
+    ...groupDoc,
+    _id: addRes._id,
+    myStreak: 0,
+    myPoints: 0,
+    role: 'owner'
+  }
+}
+
 /**
- * event.action: create | join | list | detail | members | select | rename
+ * 保证用户至少有一个群：有则选当前/第一个，无则自动建「我的打卡」
+ */
+async function ensureMineGroup({ groups, members, users, openid }) {
+  const mine = await listMyMemberships(members, openid)
+  const userRes = await users.where({ _openid: openid }).limit(1).get()
+  const user = userRes.data[0] || null
+  const preferredId = (user && user.currentGroupId) || ''
+
+  if (mine.length) {
+    let picked = preferredId ? mine.find((m) => m.groupId === preferredId) : null
+    if (!picked) picked = mine[0]
+    const groupId = picked.groupId
+    try {
+      const g = (await groups.doc(groupId).get()).data
+      if (g) {
+        if (preferredId !== groupId) {
+          await users.where({ _openid: openid }).update({
+            data: { currentGroupId: groupId, updatedAt: db.serverDate() }
+          })
+        }
+        return {
+          ok: true,
+          created: false,
+          group: {
+            ...g,
+            _id: groupId,
+            myStreak: picked.streak || 0,
+            myPoints: picked.points || 0,
+            role: picked.role || 'member'
+          }
+        }
+      }
+    } catch (e) {
+      // 群已删，继续往下建
+    }
+  }
+
+  const nick = ((user && user.nickName) || '').trim()
+  const name = nick ? `${nick}的打卡` : '我的打卡'
+  const group = await createGroupForUser({
+    groups,
+    members,
+    users,
+    openid,
+    name: name.slice(0, 20),
+    isPersonal: true
+  })
+  return { ok: true, created: true, group }
+}
+
+/**
+ * event.action: create | join | list | detail | members | select | rename | ensureMine
  */
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
@@ -47,53 +150,23 @@ exports.main = async (event = {}) => {
   const members = db.collection('group_members')
   const users = db.collection('users')
 
+  if (action === 'ensureMine') {
+    return ensureMineGroup({ groups, members, users, openid: OPENID })
+  }
+
   if (action === 'create') {
     const name = String(event.name || '').trim().slice(0, 20)
     if (!name) return { ok: false, error: 'name_required' }
 
-    const inviteCode = await ensureUniqueInviteCode()
-    const addRes = await groups.add({
-      data: {
-        name,
-        inviteCode,
-        memberCount: 1,
-        ownerOpenid: OPENID,
-        createdAt: db.serverDate()
-      }
+    const group = await createGroupForUser({
+      groups,
+      members,
+      users,
+      openid: OPENID,
+      name,
+      isPersonal: false
     })
-
-    const me = await users.where({ _openid: OPENID }).limit(1).get()
-    const myNick = ((me.data[0] && me.data[0].nickName) || '').trim()
-
-    await members.add({
-      data: {
-        groupId: addRes._id,
-        openid: OPENID,
-        role: 'owner',
-        nickName: myNick,
-        streak: 0,
-        totalCheckins: 0,
-        points: 0,
-        lastCheckinDay: '',
-        joinedAt: db.serverDate()
-      }
-    })
-
-    await users.where({ _openid: OPENID }).update({
-      data: { currentGroupId: addRes._id, updatedAt: db.serverDate() }
-    })
-
-    const groupDoc = (await groups.doc(addRes._id).get()).data || {}
-    return {
-      ok: true,
-      group: {
-        ...groupDoc,
-        _id: addRes._id,
-        myStreak: 0,
-        myPoints: 0,
-        role: 'owner'
-      }
-    }
+    return { ok: true, group }
   }
 
   if (action === 'join') {

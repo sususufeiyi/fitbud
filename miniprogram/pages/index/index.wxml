@@ -3,7 +3,7 @@
   <!-- ========== 首次 / 未入群：只展示创建或加入 ========== -->
   <block wx:if="{{mode === 'onboarding'}}">
     <view class="hero-title">坚持有奖乱买要批</view>
-    <view class="hero-sub">和好朋友一起打卡、想买、拿奖励</view>
+    <view class="hero-sub">{{heroSub}}</view>
     <view class="tip" wx:if="{{tip}}">{{tip}}</view>
 
     <view class="section-title">创建群组</view>
@@ -51,24 +51,37 @@
       <button class="action-main" bindtap="goCheckin">去打卡</button>
     </view>
 
-    <view class="section-title">群成员 · {{members.length}} 人</view>
-    <view class="list-loading" wx:if="{{membersLoading}}">加载成员…</view>
-    <view class="member-item" wx:for="{{members}}" wx:key="_id">
-      <view class="member-left">
-        <view class="member-name">
-          {{item.displayName}}
-          <text class="me-tag" wx:if="{{item.isMe}}">我</text>
-          <text class="role-tag" wx:if="{{item.role === 'owner'}}">群主</text>
+    <view class="section-title">群成员 · {{membersLoading ? '…' : (members.length + ' 人')}}</view>
+    <block wx:if="{{membersLoading && !members.length}}">
+      <view class="member-item skel-member" wx:for="{{memberSkeletonRows}}" wx:key="*this">
+        <view class="member-left">
+          <view class="skel skel-member-name"></view>
+          <view class="skel skel-member-meta"></view>
         </view>
-        <view class="member-meta">
-          {{item.todayChecked ? '今日已打卡' : '今日未打卡'}} · 共 {{item.totalCheckins || 0}} 次
+        <view class="member-right">
+          <view class="skel skel-member-stat"></view>
+          <view class="skel skel-member-points"></view>
         </view>
       </view>
-      <view class="member-right">
-        <view class="member-stat">连续 {{item.streak || 0}}</view>
-        <view class="member-points">{{item.points || 0}} 分</view>
+    </block>
+    <block wx:else>
+      <view class="member-item" wx:for="{{members}}" wx:key="_id">
+        <view class="member-left">
+          <view class="member-name">
+            {{item.displayName}}
+            <text class="me-tag" wx:if="{{item.isMe}}">我</text>
+            <text class="role-tag" wx:if="{{item.role === 'owner'}}">群主</text>
+          </view>
+          <view class="member-meta">
+            {{item.todayChecked ? '今日已打卡' : '今日未打卡'}} · 共 {{item.totalCheckins || 0}} 次
+          </view>
+        </view>
+        <view class="member-right">
+          <view class="member-stat">连续 {{item.streak || 0}}</view>
+          <view class="member-points">{{item.points || 0}} 分</view>
+        </view>
       </view>
-    </view>
+    </block>
 
     <view class="section-title" wx:if="{{groups.length > 1}}">切换群组</view>
     <block wx:if="{{groups.length > 1}}">

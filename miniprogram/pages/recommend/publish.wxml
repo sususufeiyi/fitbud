@@ -1,19 +1,21 @@
 <view class="page">
-  <view class="label">物品名 *</view>
-  <input class="input" placeholder="例如：降噪耳机" value="{{name}}" bindinput="onName" maxlength="40" />
+  <view class="hero-tip">今天想干什么？随便说说就好</view>
 
-  <view class="label">品牌</view>
-  <input class="input" placeholder="例如：Sony" value="{{brand}}" bindinput="onBrand" maxlength="40" />
+  <view class="label">想做的事 *</view>
+  <input class="input" placeholder="例如：想吃火鸡面" value="{{name}}" bindinput="onName" maxlength="40" />
 
-  <view class="label">种类 *</view>
+  <view class="label">补充一下（选填）</view>
+  <input class="input" placeholder="品牌 / 店名 / 地点都行" value="{{brand}}" bindinput="onBrand" maxlength="40" />
+
+  <view class="label">大致类型 *</view>
   <picker mode="selector" range="{{categories}}" value="{{categoryIndex}}" bindchange="onCategory">
     <view class="input picker">{{categories[categoryIndex]}}</view>
   </picker>
 
-  <view class="label">价格（元）*</view>
-  <input class="input" type="digit" placeholder="例如：899" value="{{price}}" bindinput="onPrice" />
+  <view class="label">大概花费（元）*</view>
+  <input class="input" type="digit" placeholder="例如：15" value="{{price}}" bindinput="onPrice" />
 
-  <view class="label">使用周期 / 次数 *</view>
+  <view class="label">打算用多久 / 几次 *</view>
   <view class="unit-row">
     <view class="unit {{usageUnit === 'days' ? 'on' : ''}}" bindtap="onUnitDays">按天数</view>
     <view class="unit {{usageUnit === 'times' ? 'on' : ''}}" bindtap="onUnitTimes">按次数</view>
@@ -21,25 +23,25 @@
   <input
     class="input"
     type="number"
-    placeholder="{{usageUnit === 'times' ? '预计使用多少次' : '预计用多少天'}}"
+    placeholder="{{usageUnit === 'times' ? '大概几次' : '大概几天'}}"
     value="{{usageCount}}"
     bindinput="onUsage"
   />
-  <view class="calc">自动计算：{{unitPriceText}}</view>
+  <view class="calc">自动估算：{{unitPriceText}}</view>
 
   <view class="check-row" bindtap="toggleExpensive">
     <view class="box {{isExpensive ? 'on' : ''}}">{{isExpensive ? '✓' : ''}}</view>
-    <view class="check-text">贵价（我认为价格偏高，如大于 500）</view>
+    <view class="check-text">有点小贵（我觉得偏高）</view>
   </view>
   <view class="check-row" bindtap="toggleLuxury">
     <view class="box {{isLuxury ? 'on' : ''}}">{{isLuxury ? '✓' : ''}}</view>
-    <view class="check-text">奢侈（同类型很贵，或大于 1000）</view>
+    <view class="check-text">有点奢侈（同类型里偏贵）</view>
   </view>
 
-  <view class="label">种草宣言</view>
+  <view class="label">原因 *</view>
   <textarea
     class="textarea"
-    placeholder="为什么想买？能解决什么问题？"
+    placeholder="例如：已经很久没有吃过火鸡面了"
     value="{{manifesto}}"
     bindinput="onManifesto"
     maxlength="1000"
@@ -54,5 +56,5 @@
     <view class="photo add" bindtap="choosePhotos">＋</view>
   </view>
 
-  <button class="btn" type="primary" loading="{{submitting}}" bindtap="submit">提交群审</button>
+  <button class="btn" type="primary" loading="{{submitting}}" bindtap="submit">告诉朋友们</button>
 </view>

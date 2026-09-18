@@ -3,8 +3,10 @@ const {
   setCurrentGroup,
   clearCurrentGroup,
   syncTabBar,
-  enterGroup
+  enterGroup,
+  ensureMineGroup
 } = require('../../utils/group')
+const { isWantTodoEnabled } = require('../../utils/features')
 const app = getApp()
 
 Page({
@@ -15,6 +17,7 @@ Page({
     currentGroup: null,
     members: [],
     membersLoading: false,
+    memberSkeletonRows: [1, 2, 3],
     createName: '',
     joinCode: '',
     nickName: '',
@@ -24,7 +27,8 @@ Page({
     tip: '',
     showRenameGroup: false,
     groupNameDraft: '',
-    savingGroupName: false
+    savingGroupName: false,
+    heroSub: '和好朋友一起打卡、拿奖励'
   },
 
   onLoad(query) {
@@ -37,6 +41,11 @@ Page({
 
   onShow() {
     syncTabBar(!!(getCurrentGroup() && getCurrentGroup()._id))
+    this.setData({
+      heroSub: isWantTodoEnabled()
+        ? '和好朋友一起打卡、说说想做什么、拿奖励'
+        : '和好朋友一起打卡、拿奖励'
+    })
     const run = () => {
       this.refreshProfile()
       return this.bootstrapPage()
@@ -57,7 +66,9 @@ Page({
       }
     }
     return {
-      title: '坚持有奖乱买要批｜和好朋友打卡、想买',
+      title: isWantTodoEnabled()
+        ? '坚持有奖乱买要批｜和好朋友打卡、说说想做什么'
+        : '坚持有奖乱买要批｜和好朋友一起打卡拿奖励',
       path: '/pages/index/index'
     }
   },
@@ -85,12 +96,15 @@ Page({
       return this.enterGroupMode(current)
     }
 
-    // 无当前群：拉列表，有则进最近一个；没有则引导页
+    // 无当前群：拉列表，有则进最近一个；没有则自动建个人群
     return this.loadGroups().then((list) => {
       if (list && list.length) {
         return this.enterGroupMode(list[0])
       }
-      this.showOnboarding()
+      return ensureMineGroup().then((g) => {
+        if (g && g._id) return this.enterGroupMode(g)
+        this.showOnboarding()
+      })
     })
   },
 
@@ -113,7 +127,9 @@ Page({
       this.setData({
         ready: true,
         mode: 'group',
-        currentGroup: finalGroup
+        currentGroup: finalGroup,
+        members: [],
+        membersLoading: true
       })
       return this.loadGroups().then(() => this.loadMembers(finalGroup._id))
     })
@@ -238,6 +254,11 @@ Page({
   },
 
   goCheckin() {
+    const pages = getCurrentPages()
+    if (pages.length > 1) {
+      wx.navigateBack()
+      return
+    }
     wx.switchTab({ url: '/pages/checkin/checkin' })
   },
 

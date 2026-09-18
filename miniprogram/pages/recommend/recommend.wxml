@@ -1,7 +1,10 @@
 <view class="page" wx:if="{{!locked}}">
   <view class="hero">
-    <view class="hero-title">想买</view>
-    <view class="hero-sub">想买先过群审 · 1 积分抵 ¥10 · 我的积分 {{myPoints}}</view>
+    <view class="hero-title-row">
+      <view class="hero-title">今天想干什么？</view>
+      <view class="publish-btn" bindtap="goPublish" hover-class="publish-btn-hover">说一件</view>
+    </view>
+    <view class="hero-sub">先跟朋友说说 · 1 积分抵 ¥10 · 我的积分 {{myPoints}}</view>
   </view>
 
   <scroll-view class="filters" scroll-x enable-flex>
@@ -18,23 +21,33 @@
   </scroll-view>
 
   <view class="tip" wx:if="{{tip}}">{{tip}}</view>
-  <view class="tip muted" wx:if="{{loading}}">加载中…</view>
 
-  <view class="card" wx:for="{{filteredList}}" wx:key="_id" data-id="{{item._id}}" bindtap="goDetail">
+  <block wx:if="{{loading && !filteredList.length}}">
+    <view class="card skel-card" wx:for="{{skeletonRows}}" wx:key="*this">
+      <view class="card-top">
+        <view class="skel skel-title"></view>
+        <view class="skel skel-status"></view>
+      </view>
+      <view class="skel skel-meta"></view>
+      <view class="skel skel-meta2"></view>
+    </view>
+  </block>
+
+  <view class="card {{item.isAuthor ? 'has-del' : ''}}" wx:for="{{filteredList}}" wx:key="_id" data-id="{{item._id}}" bindtap="goDetail">
     <view class="card-top">
       <view class="name">{{item.name}}</view>
       <view class="status {{item.statusClass}}">{{item.statusText}}</view>
     </view>
     <view class="meta">
-      {{item.brand || '无品牌'}} · {{item.category}} · ¥{{item.price}}
+      {{item.brand || '暂无补充'}} · {{item.category}} · ¥{{item.price}}
     </view>
     <view class="meta2">
-      {{item.authorName}} 想买 · 审批 {{item.voteProgress}}
-      <text wx:if="{{item.needMyVote}}" class="need"> · 待你审批</text>
+      {{item.authorName}} 想说 · 进度 {{item.voteProgress}}
+      <text wx:if="{{item.needMyVote}}" class="need"> · 等你看看</text>
     </view>
     <view class="tags">
-      <text class="tag" wx:if="{{item.isExpensive}}">贵价</text>
-      <text class="tag lux" wx:if="{{item.isLuxury}}">奢侈</text>
+      <text class="tag" wx:if="{{item.isExpensive}}">有点贵</text>
+      <text class="tag lux" wx:if="{{item.isLuxury}}">有点奢</text>
     </view>
 
     <view
@@ -46,7 +59,7 @@
       data-cost="{{item.redeemCost}}"
     >
       <view class="redeem-info">
-        <view class="redeem-label">积分兑换</view>
+        <view class="redeem-label">积分兑现</view>
         <view class="redeem-ratio">
           <text class="mine">{{myPoints}}</text>
           <text class="sep"> / </text>
@@ -55,7 +68,7 @@
         </view>
       </view>
       <view class="redeem-action {{item.canRedeem ? '' : 'off'}}">
-        {{item.canRedeem ? '去兑换' : '积分不足'}}
+        {{item.canRedeem ? '去兑现' : '积分不足'}}
       </view>
     </view>
 
@@ -66,17 +79,22 @@
       data-id="{{item._id}}"
     >
       <view class="buy-info">
-        <view class="buy-label">可以下手啦</view>
-        <view class="buy-sub" wx:if="{{item.viaPoints}}">已用积分兑换</view>
-        <view class="buy-sub" wx:else>群审已通过</view>
+        <view class="buy-label">可以去做啦</view>
+        <view class="buy-sub" wx:if="{{item.viaPoints}}">已用积分兑现</view>
+        <view class="buy-sub" wx:else>朋友们都点头了</view>
       </view>
-      <view class="buy-action">买！</view>
+      <view class="buy-action">完成</view>
     </view>
+
+    <view
+      class="card-del"
+      wx:if="{{item.isAuthor}}"
+      catchtap="onDeleteItem"
+      data-id="{{item._id}}"
+    >🗑</view>
   </view>
 
   <view class="empty" wx:if="{{!loading && !filteredList.length}}">{{emptyTip}}</view>
-
-  <button class="fab" bindtap="goPublish">发起想买</button>
 </view>
 
 <view class="page" wx:else>

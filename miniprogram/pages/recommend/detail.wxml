@@ -3,25 +3,25 @@
     <view class="title">{{item.name}}</view>
     <view class="status {{item.status}}">{{item.statusText}}</view>
   </view>
-  <view class="sub">{{item.authorName}} 发起 · {{item.brand || '无品牌'}} · {{item.category}}</view>
+  <view class="sub">{{item.authorName}} 想说 · {{item.brand || '暂无补充'}} · {{item.category}}</view>
 
   <view class="block">
-    <view class="row"><text class="k">价格</text><text class="v">¥{{item.price}}</text></view>
+    <view class="row"><text class="k">大概花费</text><text class="v">¥{{item.price}}</text></view>
     <view class="row">
       <text class="k">{{item.unitLabel}}</text>
       <text class="v">¥{{item.unitPrice}}（{{item.usageCount}}{{item.usageUnit === 'times' ? '次' : '天'}}）</text>
     </view>
     <view class="row" wx:if="{{item.isExpensive || item.isLuxury}}">
-      <text class="k">标记</text>
+      <text class="k">自我感觉</text>
       <text class="v">
-        <text wx:if="{{item.isExpensive}}">贵价 </text>
-        <text wx:if="{{item.isLuxury}}">奢侈</text>
+        <text wx:if="{{item.isExpensive}}">有点贵 </text>
+        <text wx:if="{{item.isLuxury}}">有点奢</text>
       </text>
     </view>
   </view>
 
   <view class="block" wx:if="{{item.manifesto}}">
-    <view class="block-title">种草宣言</view>
+    <view class="block-title">原因</view>
     <view class="manifesto">{{item.manifesto}}</view>
   </view>
 
@@ -38,44 +38,61 @@
   </view>
 
   <view class="block">
-    <view class="block-title">审批进度</view>
+    <view class="block-title">朋友们怎么说</view>
     <view class="vote" wx:for="{{item.votes}}" wx:for-item="vote" wx:key="openid">
       <view class="vote-top">
         <text>{{vote.name}}</text>
-        <text class="{{vote.pass ? 'ok' : 'no'}}">{{vote.pass ? '通过' : '不通过'}}</text>
+        <text class="{{vote.pass ? 'ok' : 'no'}}">{{vote.pass ? '支持' : '再想想'}}</text>
       </view>
       <view class="vote-reason">{{vote.reason}}</view>
     </view>
     <view class="pending" wx:for="{{item.pendingVoters}}" wx:for-item="pv" wx:key="openid">
-      {{pv.name}} · 待审批
+      {{pv.name}} · 还没看
     </view>
     <view class="empty" wx:if="{{!item.votes.length && !item.pendingVoters.length}}">
-      群内暂无其他成员，已自动视为可以购入
+      群里暂时只有你，默认可以去做
     </view>
   </view>
 
   <view class="block vote-box" wx:if="{{item.canVote}}">
-    <view class="block-title">我的审批</view>
+    <view class="block-title">你怎么看</view>
     <view class="unit-row">
-      <view class="unit {{pass ? 'on' : ''}}" bindtap="setPass">通过</view>
-      <view class="unit {{!pass ? 'on reject' : ''}}" bindtap="setReject">不通过</view>
+      <view class="unit {{pass ? 'on' : ''}}" bindtap="setPass">支持</view>
+      <view class="unit {{!pass ? 'on reject' : ''}}" bindtap="setReject">再想想</view>
+    </view>
+    <view class="preset-label">{{pass ? '随口一句（可改）' : '直说无妨（可改）'}}</view>
+    <view class="preset-row">
+      <view
+        class="preset-chip {{reason === item ? 'on' : ''}}"
+        wx:for="{{pass ? passPresets : roastPresets}}"
+        wx:key="*this"
+        data-text="{{item}}"
+        bindtap="pickPreset"
+      >{{item}}</view>
     </view>
     <textarea
       class="textarea"
-      placeholder="请填写理由（必填）"
+      placeholder="写两句你的想法（必填）"
       value="{{reason}}"
       bindinput="onReason"
       maxlength="300"
     />
-    <button class="btn" loading="{{voting}}" bindtap="submitVote">提交审批</button>
+    <button class="btn" loading="{{voting}}" bindtap="submitVote">告诉 TA</button>
   </view>
 
   <view class="hint" wx:if="{{item.isAuthor && item.status === 'pending'}}">
-    你是发布人，等待其他群友审批（你无需投票）
+    你是发起人，等朋友们回你就好
   </view>
   <view class="hint" wx:if="{{item.myVote}}">
-    你已审批：{{item.myVote.pass ? '通过' : '不通过'}}
+    你已回复：{{item.myVote.pass ? '支持' : '再想想'}}
   </view>
+
+  <button
+    class="del-btn"
+    wx:if="{{item.isAuthor}}"
+    loading="{{deleting}}"
+    bindtap="deleteItem"
+  >删掉这条</button>
 </view>
 
 <view class="page" wx:else>

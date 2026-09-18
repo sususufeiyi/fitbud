@@ -1,3 +1,14 @@
+.page {
+  padding-bottom: 48rpx;
+}
+
+.hero-tip {
+  margin: 8rpx 0 8rpx;
+  font-size: 28rpx;
+  color: var(--color-muted, #9a8b7a);
+  line-height: 1.5;
+}
+
 .label {
   margin: 24rpx 0 10rpx;
   font-size: 26rpx;

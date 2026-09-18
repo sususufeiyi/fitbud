@@ -1,19 +1,33 @@
 <view class="page" wx:if="{{!locked}}">
   <view class="top-bar">
-    <picker mode="selector" range="{{members}}" range-key="displayName" value="{{memberIndex}}" bindchange="onMemberChange">
-      <view class="viewer">
-        {{targetName || '选择成员'}}
-        <text class="viewer-arrow">▾</text>
-        <text class="me-badge" wx:if="{{isMe}}" catchtap="openRename">我 · 改名</text>
+    <view class="top-left">
+      <view class="group-entry-row">
+        <view class="group-entry-name" bindtap="goGroup">{{groupName || '群组'}}</view>
+        <view class="rename-icon" catchtap="openRenameGroup" hover-class="rename-icon-hover">✎</view>
       </view>
-    </picker>
-    <view class="stats-mini">连续 {{streak}} · {{points}} 分</view>
+      <picker mode="selector" range="{{members}}" range-key="displayName" value="{{memberIndex}}" bindchange="onMemberChange">
+        <view class="viewer">
+          {{targetName || '选择成员'}}
+          <text class="viewer-arrow">▾</text>
+          <text class="me-badge" wx:if="{{isMe}}" catchtap="openRename">我 · 改名</text>
+        </view>
+      </picker>
+    </view>
+    <view class="stats-mini">连续 {{streak}} · 累计 {{checkinDays}} · {{points}} 分</view>
   </view>
+
+  <view class="want-entry" wx:if="{{showWantTodo}}" bindtap="goWantTodo" hover-class="want-entry-hover">
+    <text class="want-entry-title">今天想干什么？</text>
+    <text class="want-entry-go">去看看 ›</text>
+  </view>
+
+  <view class="fun-banner champ" wx:if="{{weekChampionText}}">{{weekChampionText}}</view>
+  <view class="fun-banner risk" wx:if="{{streakRiskBanner}}">连续要断了！今天还没打卡</view>
 
   <view class="board">
     <view class="week-nav">
       <view class="nav-btn" bindtap="prevWeek">‹</view>
-      <view class="range">{{rangeLabel}}</view>
+      <view class="range">{{rangeLabel || '本周'}}</view>
       <view class="nav-btn" bindtap="nextWeek">›</view>
       <view
         class="today-btn {{isCurrentWeek ? 'disabled' : ''}}"
@@ -22,52 +36,131 @@
     </view>
 
     <view class="tip" wx:if="{{tip}}">{{tip}}</view>
-    <view class="tip muted" wx:if="{{loading}}">加载中…</view>
 
-    <!-- 表头：日一二三四五六 -->
-    <view class="grid-head">
-      <view class="habit-col head-label"></view>
-      <view class="day-col" wx:for="{{days}}" wx:key="key">{{item.label}}</view>
-    </view>
-
-    <!-- 行 -->
-    <view class="grid-row" wx:for="{{grid}}" wx:key="habitId" wx:for-item="row">
-      <view class="habit-col" bindlongpress="removeHabit" data-habitid="{{row.habitId}}">
-        <text class="habit-emoji">{{row.emoji}}</text>
-        <text class="habit-name">{{row.name}}</text>
+    <!-- 加载骨架 -->
+    <block wx:if="{{loading && !grid.length}}">
+      <view class="grid-head">
+        <view class="habit-col head-label"></view>
+        <view class="day-col" wx:for="{{skeletonDays}}" wx:key="*this">{{item}}</view>
       </view>
-      <view
-        class="day-col cell {{cell.checked ? 'on' : 'off'}} {{cell.future ? 'future' : ''}} {{cell.isMakeup ? 'makeup' : ''}} {{cell.isToday ? 'today' : ''}} {{isMe && !cell.future ? 'editable' : ''}}"
-        wx:for="{{row.cells}}"
-        wx:for-item="cell"
-        wx:key="day"
-        style="{{cell.checked ? 'background:' + row.color : ''}}"
-        data-habitid="{{row.habitId}}"
-        data-day="{{cell.day}}"
-        bindtap="toggleCell"
-      >
-        <text wx:if="{{cell.checked}}" class="check">✓</text>
-        <text wx:if="{{cell.checked && cell.isMakeup}}" class="makeup-tag">补</text>
+      <view class="skel-row" wx:for="{{skeletonRows}}" wx:key="*this">
+        <view class="skel skel-habit"></view>
+        <view class="skel skel-cell" wx:for="{{skeletonDays}}" wx:key="*this"></view>
       </view>
-    </view>
+    </block>
 
-    <view class="empty" wx:if="{{!loading && !grid.length}}">
-      {{isMe ? '还没有打卡项，点下方添加' : '对方还没有自定义打卡项'}}
-    </view>
+    <block wx:else>
+      <!-- 表头：日一二三四五六 -->
+      <view class="grid-head">
+        <view class="habit-col head-label"></view>
+        <view class="day-col" wx:for="{{days}}" wx:key="key">{{item.label}}</view>
+      </view>
 
-    <view class="hint" wx:if="{{isMe && grid.length}}">今天打卡 +10 · 补卡 +5 · 不可打未来 · 长按名称删除</view>
-    <view class="hint" wx:if="{{!isMe}}">正在查看 {{targetName}} 的打卡（只读）</view>
+      <!-- 行 -->
+      <view class="grid-row" wx:for="{{grid}}" wx:key="habitId" wx:for-item="row">
+        <view class="habit-col" bindlongpress="openEdit" data-habitid="{{row.habitId}}">
+          <text class="habit-emoji">{{row.emoji}}</text>
+          <text class="habit-name">{{row.name}}</text>
+        </view>
+
+        <!-- 每周 N 次：N 个等分长块 -->
+        <view class="cells-track" wx:if="{{row.weekly}}">
+          <view
+            class="cell week-slot {{cell.checked ? 'on' : 'off'}} {{cell.future ? 'future' : ''}} {{cell.isMakeup ? 'makeup' : ''}} {{isMe && !cell.future ? 'editable' : ''}} {{pendingKey === row.habitId + '__' + cell.day ? 'pending' : ''}}"
+            wx:for="{{row.cells}}"
+            wx:for-item="cell"
+            wx:key="day"
+            style="{{cell.checked ? 'background:' + row.color + ';' : ''}}"
+            data-habitid="{{row.habitId}}"
+            data-day="{{cell.day}}"
+            bindtap="toggleCell"
+          >
+            <view wx:if="{{pendingKey === row.habitId + '__' + cell.day}}" class="cell-spin"></view>
+            <block wx:else>
+              <text wx:if="{{cell.checked}}" class="check">✓</text>
+              <text wx:if="{{cell.checked && cell.isMakeup}}" class="makeup-tag">补</text>
+            </block>
+          </view>
+        </view>
+
+        <!-- 每天：按日格子 -->
+        <block wx:else>
+          <view
+            class="day-col cell {{cell.checked ? 'on' : 'off'}} {{cell.future ? 'future' : ''}} {{cell.isMakeup ? 'makeup' : ''}} {{cell.isToday ? 'today' : ''}} {{isMe && !cell.future ? 'editable' : ''}} {{pendingKey === row.habitId + '__' + cell.day ? 'pending' : ''}}"
+            wx:for="{{row.cells}}"
+            wx:for-item="cell"
+            wx:key="day"
+            style="{{cell.checked ? 'background:' + row.color : ''}}"
+            data-habitid="{{row.habitId}}"
+            data-day="{{cell.day}}"
+            bindtap="toggleCell"
+          >
+            <view wx:if="{{pendingKey === row.habitId + '__' + cell.day}}" class="cell-spin"></view>
+            <block wx:else>
+              <text wx:if="{{cell.checked}}" class="check">✓</text>
+              <text wx:if="{{cell.checked && cell.isMakeup}}" class="makeup-tag">补</text>
+            </block>
+          </view>
+        </block>
+      </view>
+
+      <view class="empty" wx:if="{{!loading && !grid.length}}">
+        {{isMe ? '还没有打卡项，可添加或从其他群同步' : '对方还没有自定义打卡项'}}
+      </view>
+
+      <view class="hint" wx:if="{{isMe && grid.length}}">运动 +10 · 日常 +2 · 补卡减半 · 长按名称编辑</view>
+      <view class="hint" wx:if="{{!isMe}}">正在查看 {{targetName}} 的打卡（只读）</view>
+    </block>
   </view>
 
-  <!-- 组员本周进度 -->
-  <view class="progress-board" wx:if="{{weekProgress.length}}">
-    <view class="progress-title">周进度</view>
-    <view class="progress-sub"></view>
+  <!-- 组员日/周/月积分进度 -->
+  <view class="progress-board" wx:if="{{loading && !rankProgress.length}}">
+    <view class="progress-head">
+      <view class="progress-title">{{progressTitle}}</view>
+      <view class="progress-tabs">
+        <view class="progress-tab {{progressTab === 'day' ? 'on' : ''}}">日</view>
+        <view class="progress-tab {{progressTab === 'week' ? 'on' : ''}}">周</view>
+        <view class="progress-tab {{progressTab === 'month' ? 'on' : ''}}">月</view>
+      </view>
+    </view>
+    <view class="skel-progress" wx:for="{{skeletonRows}}" wx:key="*this">
+      <view class="skel skel-name"></view>
+      <view class="skel skel-bar"></view>
+      <view class="skel skel-pct"></view>
+    </view>
+  </view>
+  <view class="progress-board" wx:elif="{{rankProgress.length}}">
+    <view class="progress-head">
+      <view class="progress-title">{{progressTitle}}</view>
+      <view class="progress-tabs">
+        <view
+          class="progress-tab {{progressTab === 'day' ? 'on' : ''}}"
+          data-tab="day"
+          bindtap="onProgressTab"
+        >日</view>
+        <view
+          class="progress-tab {{progressTab === 'week' ? 'on' : ''}}"
+          data-tab="week"
+          bindtap="onProgressTab"
+        >周</view>
+        <view
+          class="progress-tab {{progressTab === 'month' ? 'on' : ''}}"
+          data-tab="month"
+          bindtap="onProgressTab"
+        >月</view>
+      </view>
+    </view>
+    <view class="progress-sub">按积分排名 · 点别人可戳催打卡</view>
     <view
-      class="progress-row {{item.isMe ? 'me' : ''}}"
-      wx:for="{{weekProgress}}"
+      class="progress-row {{item.isMe ? 'me' : 'pokeable'}}"
+      wx:for="{{rankProgress}}"
       wx:key="openid"
+      data-openid="{{item.openid}}"
+      data-name="{{item.displayName}}"
+      data-isme="{{item.isMe ? 1 : 0}}"
+      bindtap="onPoke"
     >
+      <view class="progress-rank">{{index + 1}}</view>
       <view class="progress-name">
         {{item.displayName}}
         <text class="progress-me" wx:if="{{item.isMe}}">我</text>
@@ -77,13 +170,11 @@
           <view class="progress-bar-fill" style="width: {{item.percent}}%;"></view>
         </view>
       </view>
-      <view class="progress-pct">
-        <block wx:if="{{item.habitCount}}">{{item.percent}}%</block>
-        <block wx:else>—</block>
-      </view>
+      <view class="progress-pct">{{item.points || 0}}分</view>
     </view>
   </view>
 
+  <button class="sync-btn" wx:if="{{isMe}}" bindtap="openSync">从其他群同步打卡项</button>
   <button class="add-btn" wx:if="{{isMe}}" bindtap="openAdd">＋ 添加打卡项</button>
 </view>
 
@@ -91,10 +182,10 @@
   <view class="tip">{{tip || '请先创建或加入群组'}}</view>
 </view>
 
-<!-- 添加打卡项 -->
+<!-- 添加 / 编辑打卡项 -->
 <view class="mask" wx:if="{{showAdd}}" bindtap="closeAdd"></view>
-<view class="sheet" wx:if="{{showAdd}}">
-  <view class="sheet-title">添加打卡项</view>
+<view class="sheet" wx:if="{{showAdd}}" catchtap="noop">
+  <view class="sheet-title">{{editingHabitId ? '编辑打卡项' : '添加打卡项'}}</view>
   <view class="emoji-row">
     <view
       class="emoji-item {{newEmoji === item ? 'on' : ''}}"
@@ -105,7 +196,67 @@
     >{{item}}</view>
   </view>
   <input class="sheet-input" placeholder="名称，如：健身" value="{{newName}}" bindinput="onNewName" maxlength="12" />
-  <button class="sheet-ok" bindtap="addHabit">添加</button>
+  <view class="sheet-label">打卡频率</view>
+  <picker mode="selector" range="{{freqOptions}}" range-key="label" value="{{newFreqIndex}}" bindchange="onFreqChange">
+    <view class="freq-picker">
+      {{freqOptions[newFreqIndex].label}}
+      <text class="viewer-arrow">▾</text>
+    </view>
+  </picker>
+  <view class="sheet-desc freq-hint">每周几次会显示为对应数量的长块，不要求每天都打</view>
+  <view class="sheet-label">类型</view>
+  <picker mode="selector" range="{{diffOptions}}" range-key="label" value="{{newDiffIndex}}" bindchange="onDiffChange">
+    <view class="freq-picker">
+      {{diffOptions[newDiffIndex].label}}
+      <text class="viewer-arrow">▾</text>
+    </view>
+  </picker>
+  <view class="sheet-desc freq-hint">运动 +10（补卡 +5），日常 +2（补卡 +1）；「只做记录」不计分</view>
+  <button class="sheet-ok" loading="{{savingHabit}}" bindtap="saveHabit">
+    {{editingHabitId ? '保存' : '添加'}}
+  </button>
+  <button class="sheet-del" wx:if="{{editingHabitId}}" bindtap="confirmDeleteHabit">删除打卡项</button>
+</view>
+
+<!-- 从其他群同步 -->
+<view class="mask" wx:if="{{showSync}}" bindtap="closeSync"></view>
+<view class="sheet sync-sheet" wx:if="{{showSync}}" catchtap="noop">
+  <view class="sheet-title">同步打卡项</view>
+  <view class="sheet-desc">勾选后复制到本群，并建立联动：一边打卡，另一边也会勾上（不计双份分）</view>
+  <view class="tip muted" wx:if="{{syncLoading}}">加载中…</view>
+  <view class="sync-empty" wx:if="{{!syncLoading && !syncSources.length}}">
+    其他群暂无可同步的打卡项
+  </view>
+  <scroll-view scroll-y class="sync-scroll" wx:if="{{!syncLoading && syncSources.length}}">
+    <view class="sync-group" wx:for="{{syncSources}}" wx:key="groupId" wx:for-item="src">
+      <view class="sync-group-head" data-gid="{{src.groupId}}" bindtap="toggleSyncGroup">
+        <text class="sync-group-name">{{src.groupName}}</text>
+        <text class="sync-group-act">全选/取消</text>
+      </view>
+      <view
+        class="sync-item {{h.selected ? 'on' : ''}}"
+        wx:for="{{src.habits}}"
+        wx:for-item="h"
+        wx:key="_id"
+        data-id="{{h._id}}"
+        bindtap="toggleSyncItem"
+      >
+        <view class="sync-check">{{h.selected ? '✓' : ''}}</view>
+        <text class="sync-emoji">{{h.emoji}}</text>
+        <view class="sync-main">
+          <view class="sync-name">{{h.name}}</view>
+          <view class="sync-meta">{{h.freqLabel}} · {{h.diffLabel}}</view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+  <button
+    class="sheet-ok"
+    wx:if="{{syncSources.length}}"
+    loading="{{syncSaving}}"
+    bindtap="confirmSync"
+  >同步到本群</button>
+  <button class="sheet-del" bindtap="closeSync">关闭</button>
 </view>
 
 <!-- 改群内显示名 -->
@@ -124,4 +275,20 @@
     bindchange="onNickBlur"
   />
   <button class="sheet-ok" loading="{{savingNick}}" bindtap="saveNick">保存</button>
+</view>
+
+<!-- 修改群名称 -->
+<view class="mask" wx:if="{{showRenameGroup}}" bindtap="closeRenameGroup"></view>
+<view class="sheet" wx:if="{{showRenameGroup}}" catchtap="noop">
+  <view class="sheet-title">修改群名称</view>
+  <view class="sheet-desc">群内任意成员都可以改名</view>
+  <input
+    class="sheet-input"
+    placeholder="输入新的群名称"
+    value="{{groupNameDraft}}"
+    maxlength="20"
+    focus="{{showRenameGroup}}"
+    bindinput="onGroupNameInput"
+  />
+  <button class="sheet-ok" loading="{{savingGroupName}}" bindtap="saveGroupName">保存</button>
 </view>

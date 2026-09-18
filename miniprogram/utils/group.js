@@ -41,7 +41,7 @@ function clearCurrentGroup() {
   setCurrentGroup(null)
 }
 
-/** 有群显示 Tab，无群隐藏（首次只看创建/加入） */
+/** 有群显示 Tab，无群隐藏 */
 function syncTabBar(hasGroup) {
   try {
     if (hasGroup) {
@@ -56,26 +56,39 @@ function syncTabBar(hasGroup) {
   if (app && app.globalData) {
     app.globalData.hasGroup = !!hasGroup
   }
+  refreshCustomTabBar()
+}
+
+function refreshCustomTabBar() {
+  try {
+    const pages = getCurrentPages()
+    const page = pages && pages[pages.length - 1]
+    if (!page || typeof page.getTabBar !== 'function') return
+    const bar = page.getTabBar()
+    if (bar && typeof bar.refresh === 'function') bar.refresh()
+  } catch (e) {
+    // ignore
+  }
+}
+
+/** role: checkin | recommend | rewards */
+function setTabSelected(page, role) {
+  try {
+    if (!page || typeof page.getTabBar !== 'function') return
+    const bar = page.getTabBar()
+    if (!bar) return
+    if (typeof bar.refresh === 'function') bar.refresh()
+    if (typeof bar.setSelectedByRole === 'function') {
+      bar.setSelectedByRole(role)
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 function hasGroup() {
   const g = getCurrentGroup()
   return !!(g && g._id)
-}
-
-/** 未选群则回首页引导，返回 null */
-function requireGroup() {
-  const group = getCurrentGroup()
-  if (group && group._id) {
-    syncTabBar(true)
-    return group
-  }
-  syncTabBar(false)
-  wx.showToast({ title: '请先创建或加入群组', icon: 'none' })
-  setTimeout(() => {
-    wx.switchTab({ url: '/pages/index/index' })
-  }, 400)
-  return null
 }
 
 /** 进入群：写本地 + 调 select（可补成员）+ 显示 Tab */
@@ -95,12 +108,42 @@ function enterGroup(group) {
     .catch(() => group)
 }
 
+/** 无群时自动创建个人打卡群 */
+function ensureMineGroup() {
+  return wx.cloud
+    .callFunction({ name: 'group', data: { action: 'ensureMine' } })
+    .then((res) => {
+      const r = (res && res.result) || {}
+      if (r.ok && r.group && r.group._id) {
+        setCurrentGroup(r.group)
+        syncTabBar(true)
+        return r.group
+      }
+      return null
+    })
+    .catch(() => null)
+}
+
+/** 未选群返回 null；页面应等 whenReady / ensureMine，不再跳引导页 */
+function requireGroup() {
+  const group = getCurrentGroup()
+  if (group && group._id) {
+    syncTabBar(true)
+    return group
+  }
+  syncTabBar(false)
+  return null
+}
+
 module.exports = {
   getCurrentGroup,
   setCurrentGroup,
   clearCurrentGroup,
   syncTabBar,
+  refreshCustomTabBar,
+  setTabSelected,
   hasGroup,
   requireGroup,
-  enterGroup
+  enterGroup,
+  ensureMineGroup
 }

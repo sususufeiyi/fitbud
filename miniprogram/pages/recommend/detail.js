@@ -1,42 +1,83 @@
-const { getCurrentGroup } = require('../../utils/group')
+const { getCurrentGroup, enterGroup, syncTabBar } = require('../../utils/group')
+const { requestReviewSubscribe } = require('../../utils/subscribe')
+const { guardWantTodoOrLeave } = require('../../utils/features')
 
 const STATUS_MAP = {
-  pending: '审批中',
-  approved: '可以买',
-  rejected: '不能买',
-  bought: '已经买啦',
-  redeemed: '已经买啦'
+  pending: '等回复',
+  ready: '积分已兑',
+  approved: '可以做',
+  rejected: '先缓缓',
+  bought: '做过了',
+  redeemed: '做过了'
 }
+
+const ROAST_PRESETS = [
+  '先缓一缓吧',
+  '感觉还不是时候',
+  '最近已经够忙了',
+  '过两天再看',
+  '群友替你把把关'
+]
+
+const PASS_PRESETS = [
+  '支持',
+  '听起来不错',
+  '去做吧'
+]
 
 Page({
   data: {
     id: '',
+    groupId: '',
     item: null,
     tip: '',
     pass: true,
     reason: '',
-    voting: false
+    voting: false,
+    deleting: false,
+    roastPresets: ROAST_PRESETS,
+    passPresets: PASS_PRESETS
   },
 
   onLoad(query) {
-    this.setData({ id: (query && query.id) || '' })
+    this.setData({
+      id: (query && query.id) || '',
+      groupId: (query && query.groupId) || ''
+    })
   },
 
   onShow() {
-    this.loadDetail()
+    if (!guardWantTodoOrLeave()) return
+    const app = getApp()
+    const ready = (app && app.whenReady) || (() => Promise.resolve({}))
+    ready
+      .call(app)
+      .then(() => {
+        const gid = this.data.groupId
+        const cached = getCurrentGroup()
+        if (gid && (!cached || cached._id !== gid)) {
+          return enterGroup({ _id: gid }).then(() => {
+            syncTabBar(true)
+          })
+        }
+        return null
+      })
+      .catch(() => {})
+      .then(() => this.loadDetail())
   },
 
   loadDetail() {
     const group = getCurrentGroup()
     const id = this.data.id
-    if (!group || !id) {
+    const groupId = (group && group._id) || this.data.groupId
+    if (!groupId || !id) {
       this.setData({ tip: '参数错误' })
       return
     }
     wx.cloud
       .callFunction({
         name: 'shop',
-        data: { action: 'detail', groupId: group._id, id }
+        data: { action: 'detail', groupId, id }
       })
       .then((res) => {
         const r = res.result || {}
@@ -66,6 +107,11 @@ Page({
   setReject() {
     this.setData({ pass: false })
   },
+  pickPreset(e) {
+    const text = e.currentTarget.dataset.text || ''
+    if (!text) return
+    this.setData({ reason: text })
+  },
   onReason(e) {
     this.setData({ reason: e.detail.value })
   },
@@ -77,37 +123,78 @@ Page({
       return
     }
     const group = getCurrentGroup()
-    if (!group || this.data.voting) return
-    this.setData({ voting: true })
+    const groupId = (group && group._id) || this.data.groupId
+    if (!groupId || this.data.voting) return
 
-    wx.cloud
-      .callFunction({
-        name: 'shop',
-        data: {
-          action: 'vote',
-          groupId: group._id,
-          id: this.data.id,
-          pass: this.data.pass,
-          reason
-        }
-      })
-      .then((res) => {
-        const r = res.result || {}
-        if (!r.ok) {
-          const map = {
-            reason_required: '请填写理由',
-            already_voted: '你已审批过',
-            author_cannot_vote: '发布人不能投票',
-            closed: '已结束'
+    const doVote = () => {
+      this.setData({ voting: true })
+      wx.cloud
+        .callFunction({
+          name: 'shop',
+          data: {
+            action: 'vote',
+            groupId,
+            id: this.data.id,
+            pass: this.data.pass,
+            reason
           }
-          wx.showToast({ title: map[r.error] || '提交失败', icon: 'none' })
-          return
-        }
-        wx.showToast({ title: '已提交', icon: 'success' })
-        this.setData({ reason: '' })
-        this.loadDetail()
-      })
-      .catch(() => wx.showToast({ title: '提交失败', icon: 'none' }))
-      .finally(() => this.setData({ voting: false }))
+        })
+        .then((res) => {
+          const r = res.result || {}
+          if (!r.ok) {
+            const map = {
+              reason_required: '写两句想法再发',
+              already_voted: '你已经回过了',
+              author_cannot_vote: '发起人不用回自己',
+              closed: '已经结束了'
+            }
+            wx.showToast({ title: map[r.error] || '没发出去', icon: 'none' })
+            return
+          }
+          wx.showToast({ title: '已告诉 TA', icon: 'success' })
+          this.setData({ reason: '' })
+          this.loadDetail()
+        })
+        .catch(() => wx.showToast({ title: '提交失败', icon: 'none' }))
+        .finally(() => this.setData({ voting: false }))
+    }
+
+    requestReviewSubscribe().finally(doVote)
+  },
+
+  deleteItem() {
+    const item = this.data.item
+    if (!item || !item.isAuthor || this.data.deleting) return
+    const group = getCurrentGroup()
+    const groupId = (group && group._id) || this.data.groupId
+    if (!groupId) return
+    wx.showModal({
+      title: '删掉这条',
+      content: '确定删掉这条想做的事吗？',
+      confirmColor: '#c45c5c',
+      success: (res) => {
+        if (!res.confirm) return
+        this.setData({ deleting: true })
+        wx.cloud
+          .callFunction({
+            name: 'shop',
+            data: { action: 'remove', groupId, id: this.data.id }
+          })
+          .then((r) => {
+            const result = r.result || {}
+            if (!result.ok) {
+              wx.showToast({
+                title: result.error === 'forbidden' ? '只能删自己的' : '删除失败',
+                icon: 'none'
+              })
+              return
+            }
+            wx.showToast({ title: '已删除', icon: 'none' })
+            wx.navigateBack()
+          })
+          .catch(() => wx.showToast({ title: '网络错误', icon: 'none' }))
+          .finally(() => this.setData({ deleting: false }))
+      }
+    })
   }
 })

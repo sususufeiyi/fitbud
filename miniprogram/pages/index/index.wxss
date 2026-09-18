@@ -58,9 +58,17 @@
 
 .share-btn {
   margin-top: 20rpx;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 40rpx !important;
+  padding-right: 40rpx !important;
   background: var(--color-accent) !important;
   color: #fff !important;
   border-radius: 999rpx !important;
+  font-weight: 600 !important;
+  font-size: 28rpx !important;
+  white-space: nowrap !important;
+  line-height: 1.4 !important;
 }
 
 .actions {
@@ -146,6 +154,51 @@
   background: var(--color-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  min-height: 112rpx;
+  box-sizing: border-box;
+}
+
+.member-item.skel-member {
+  min-height: 112rpx;
+}
+
+.skel {
+  background: linear-gradient(90deg, #f3ebe3 0%, #faf4ee 45%, #f3ebe3 100%);
+  background-size: 200% 100%;
+  animation: skel-shine 1.2s ease-in-out infinite;
+  border-radius: 12rpx;
+}
+
+.skel-member-name {
+  width: 180rpx;
+  height: 30rpx;
+}
+
+.skel-member-meta {
+  width: 280rpx;
+  height: 24rpx;
+  margin-top: 12rpx;
+}
+
+.skel-member-stat {
+  width: 96rpx;
+  height: 24rpx;
+  margin-left: auto;
+}
+
+.skel-member-points {
+  width: 72rpx;
+  height: 30rpx;
+  margin: 8rpx 0 0 auto;
+}
+
+@keyframes skel-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .member-left {

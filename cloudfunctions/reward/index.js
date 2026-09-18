@@ -109,6 +109,91 @@ function formatLogTime(v) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+function dayKey(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function chinaTodayKey() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date())
+  const get = (type) => Number((parts.find((p) => p.type === type) || {}).value)
+  return dayKey(new Date(get('year'), get('month') - 1, get('day')))
+}
+
+function yesterdayKey(day) {
+  const [y, m, d] = day.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() - 1)
+  return dayKey(dt)
+}
+
+function parseSlotDay(day) {
+  const m = String(day || '').match(/^(\d{4}-\d{2}-\d{2})#(\d+)$/)
+  if (!m) return null
+  return { weekStart: m[1], slot: Number(m[2]) }
+}
+
+function chinaDayKeyFromValue(v) {
+  if (!v) return ''
+  const d = v instanceof Date ? v : new Date(v)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(d)
+  const get = (type) => Number((parts.find((p) => p.type === type) || {}).value)
+  return dayKey(new Date(get('year'), get('month') - 1, get('day')))
+}
+
+/** 每天习惯用 day；周槽位用 streakDay / createdAt，禁止周日+slot 虚增 */
+function activityDayFromCheckin(c) {
+  if (!c || c.mirrored) return ''
+  if (c.streakDay && /^\d{4}-\d{2}-\d{2}$/.test(String(c.streakDay))) {
+    return String(c.streakDay)
+  }
+  const s = String(c.day || '')
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  if (parseSlotDay(s)) return chinaDayKeyFromValue(c.createdAt)
+  return ''
+}
+
+/** 连续：非补卡自然日从今天往回不断档；同日多习惯算 1 天 */
+function consecutiveStreakFromCheckins(rows, todayStr) {
+  const set = new Set()
+  ;(rows || []).forEach((c) => {
+    if (!c || c.mirrored || c.isMakeup) return
+    const key = activityDayFromCheckin(c)
+    if (key && key <= todayStr) set.add(key)
+  })
+  if (!set.size) return 0
+  let cursor = todayStr
+  if (!set.has(cursor)) cursor = yesterdayKey(cursor)
+  let n = 0
+  while (set.has(cursor)) {
+    n += 1
+    cursor = yesterdayKey(cursor)
+  }
+  return n
+}
+
+async function loadMemberCheckins(groupId, openid) {
+  let hist = await db.collection('checkins').where({ groupId, openid }).limit(1000).get()
+  if (!(hist.data || []).length) {
+    hist = await db.collection('checkins').where({ groupId, _openid: openid }).limit(1000).get()
+  }
+  return hist.data || []
+}
+
 async function requireMember(groupId, openid) {
   if (!groupId) return null
   let res = await db
@@ -173,8 +258,19 @@ exports.main = async (event = {}) => {
     // ignore
   }
 
-  const streak = member.streak || 0
   const totalCheckins = member.totalCheckins || 0
+  const todayStr = chinaTodayKey()
+  let streak = member.streak || 0
+  try {
+    const rows = await loadMemberCheckins(groupId, OPENID)
+    streak = consecutiveStreakFromCheckins(rows, todayStr)
+    // 写回，避免页面和库里长期不一致
+    if ((member.streak || 0) !== streak && member._id) {
+      await db.collection('group_members').doc(member._id).update({ data: { streak } })
+    }
+  } catch (e) {
+    // keep stored streak
+  }
 
   const streakMilestones = STREAK_MILESTONES.map((m) => ({
     ...m,

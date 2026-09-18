@@ -1,4 +1,5 @@
-const { getCurrentGroup, setCurrentGroup, syncTabBar, enterGroup } = require('./utils/group')
+const { getCurrentGroup, setCurrentGroup, syncTabBar, enterGroup, ensureMineGroup } = require('./utils/group')
+const { fetchFeatures, setFeatures } = require('./utils/features')
 
 App({
   globalData: {
@@ -9,7 +10,7 @@ App({
     cloudReady: false,
     bootPromise: null,
     launchInvite: '',
-    openedCheckinOnce: false
+    features: { showWantTodo: false }
   },
 
   onLaunch(options) {
@@ -29,19 +30,28 @@ App({
     })
     this.globalData.cloudReady = true
 
+    // 默认隐藏「想做什么」；有本地缓存先用，云端再刷新
+    try {
+      const cachedFeatures = wx.getStorageSync('fitbud_features')
+      if (cachedFeatures && typeof cachedFeatures === 'object') {
+        setFeatures(cachedFeatures)
+      } else {
+        setFeatures({ showWantTodo: false })
+      }
+    } catch (e) {
+      setFeatures({ showWantTodo: false })
+    }
+
     const query = (options && options.query) || {}
     this.globalData.launchInvite = String(query.invite || query.inviteCode || '').trim()
 
-    // 有本地群缓存时先展示 Tab，并尽快进打卡（不等云返回）
+    // 有本地群缓存时先展示 Tab
     let cached = null
     try {
       cached = wx.getStorageSync('fitbud_current_group')
       if (cached && cached._id) {
         this.globalData.currentGroup = cached
         syncTabBar(true)
-        if (!this.globalData.launchInvite) {
-          this.maybeOpenCheckinTab(cached)
-        }
       } else {
         syncTabBar(false)
       }
@@ -49,24 +59,13 @@ App({
       syncTabBar(false)
     }
 
-    this.globalData.bootPromise = this.bootstrap().then((result) => {
-      // 无缓存时，等云确认有群再进打卡
-      if (!this.globalData.openedCheckinOnce) {
-        this.maybeOpenCheckinTab(result && result.group)
-      }
-      return result
-    })
-  },
+    // 带邀请码进入：去群组页处理加入
+    if (this.globalData.launchInvite) {
+      const code = encodeURIComponent(this.globalData.launchInvite)
+      wx.reLaunch({ url: `/pages/index/index?invite=${code}` })
+    }
 
-  /** 老用户（已有群）默认进打卡；带邀请码进小程序时不跳 */
-  maybeOpenCheckinTab(group) {
-    if (this.globalData.openedCheckinOnce) return
-    if (this.globalData.launchInvite) return
-    if (!(group && group._id)) return
-    this.globalData.openedCheckinOnce = true
-    setTimeout(() => {
-      wx.switchTab({ url: '/pages/checkin/checkin' })
-    }, 30)
+    this.globalData.bootPromise = this.bootstrap()
   },
 
   ensureLogin() {
@@ -85,21 +84,31 @@ App({
   },
 
   /**
-   * 启动：登录 + 校验群
-   * 有本地缓存时先返回缓存，云端 select 后台刷新，不阻塞首屏
+   * 启动：登录 + 无群则自动建个人群 + 功能开关
    */
   bootstrap() {
     const cached = getCurrentGroup()
 
-    return this.ensureLogin()
-      .then((data) => {
+    const featuresReady = fetchFeatures().then((features) => {
+      this.globalData.features = features
+      return features
+    })
+
+    return Promise.all([this.ensureLogin(), featuresReady])
+      .then(([data]) => {
         const serverGroupId =
           (data && data.user && data.user.currentGroupId) || (cached && cached._id) || ''
 
         if (!serverGroupId) {
-          setCurrentGroup(null)
-          syncTabBar(false)
-          return { group: null }
+          return ensureMineGroup().then((group) => {
+            if (group && group._id) {
+              syncTabBar(true)
+              return { group }
+            }
+            setCurrentGroup(null)
+            syncTabBar(false)
+            return { group: null }
+          })
         }
 
         const seed = {
@@ -120,9 +129,16 @@ App({
             syncTabBar(true)
             return { group }
           }
-          setCurrentGroup(null)
-          syncTabBar(false)
-          return { group: null }
+          // 旧 currentGroupId 失效 → 自动建/找回个人群
+          return ensureMineGroup().then((g) => {
+            if (g && g._id) {
+              syncTabBar(true)
+              return { group: g }
+            }
+            setCurrentGroup(null)
+            syncTabBar(false)
+            return { group: null }
+          })
         })
       })
       .catch(() => {

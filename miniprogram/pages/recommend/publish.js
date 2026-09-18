@@ -1,6 +1,7 @@
 const { getCurrentGroup } = require('../../utils/group')
+const { guardWantTodoOrLeave } = require('../../utils/features')
 
-const CATEGORIES = ['数码', '美妆', '文娱', '食品', '服饰', '家居', '其他']
+const CATEGORIES = ['吃喝', '玩乐', '学习', '运动', '居家', '数码', '其他']
 
 Page({
   data: {
@@ -17,6 +18,10 @@ Page({
     manifesto: '',
     photos: [],
     submitting: false
+  },
+
+  onShow() {
+    guardWantTodoOrLeave()
   },
 
   onUnitDays() {
@@ -107,15 +112,19 @@ Page({
     const price = Number(this.data.price)
     const usageCount = Number(this.data.usageCount)
     if (!name) {
-      wx.showToast({ title: '请填写物品名', icon: 'none' })
+      wx.showToast({ title: '写一下想做的事', icon: 'none' })
       return
     }
     if (!(price >= 0) || Number.isNaN(price)) {
-      wx.showToast({ title: '请填写价格', icon: 'none' })
+      wx.showToast({ title: '填一下大概花费', icon: 'none' })
       return
     }
     if (!(usageCount > 0) || Number.isNaN(usageCount)) {
-      wx.showToast({ title: '请填写使用周期/次数', icon: 'none' })
+      wx.showToast({ title: '填一下打算用多久', icon: 'none' })
+      return
+    }
+    if (!(this.data.manifesto || '').trim()) {
+      wx.showToast({ title: '写一下原因', icon: 'none' })
       return
     }
     if (this.data.submitting) return
@@ -157,7 +166,7 @@ Page({
           wx.showToast({ title: '发布失败', icon: 'none' })
           return
         }
-        wx.showToast({ title: '已提交审批', icon: 'success' })
+        wx.showToast({ title: '已告诉朋友们', icon: 'success' })
         setTimeout(() => wx.navigateBack(), 500)
       })
       .catch((err) => {

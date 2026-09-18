@@ -23,8 +23,7 @@ page {
 }
 
 .page {
-  padding: 32rpx;
-  padding-bottom: 48rpx;
+  padding:0 32rpx 48rpx 32rpx;
 }
 
 .hero-title {

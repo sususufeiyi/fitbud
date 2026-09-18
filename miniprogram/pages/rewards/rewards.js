@@ -1,4 +1,9 @@
-const { requireGroup, getCurrentGroup } = require('../../utils/group')
+const { requireGroup, getCurrentGroup, syncTabBar, setTabSelected } = require('../../utils/group')
+const { isWantTodoEnabled } = require('../../utils/features')
+
+function hasClaimable(list) {
+  return (list || []).some((m) => m.unlocked && !m.claimed)
+}
 
 Page({
   data: {
@@ -8,6 +13,8 @@ Page({
     totalCheckins: 0,
     streakMilestones: [],
     totalMilestones: [],
+    streakHasClaim: false,
+    totalHasClaim: false,
     locked: false,
     showRewards: false,
     rewardType: 'streak',
@@ -16,25 +23,76 @@ Page({
     sheetList: [],
     showPointLogs: false,
     pointLogs: [],
-    logsLoading: false
+    logsLoading: false,
+    titles: [],
+    showWantTodo: false
   },
 
   onShow() {
-    const group = requireGroup()
-    if (!group) {
+    const app = getApp()
+    const apply = (group) => {
+      if (!group || !group._id) {
+        this.setData({
+          locked: true,
+          streakMilestones: [],
+          totalMilestones: [],
+          streakHasClaim: false,
+          totalHasClaim: false,
+          showRewards: false,
+          showPointLogs: false,
+          titles: [],
+          showWantTodo: false
+        })
+        return
+      }
+      syncTabBar(true)
+      setTabSelected(this, 'rewards')
       this.setData({
-        locked: true,
-        streakMilestones: [],
-        totalMilestones: [],
-        showRewards: false,
-        showPointLogs: false
+        locked: false,
+        groupName: group.name || '',
+        showWantTodo: isWantTodoEnabled()
+      })
+      this.loadStatus()
+      this.loadTitles()
+    }
+
+    const local = requireGroup()
+    if (local) {
+      apply(local)
+      const ready = (app && app.whenReady) || (() => Promise.resolve({}))
+      ready.call(app).then(() => {
+        setTabSelected(this, 'rewards')
+        this.setData({ showWantTodo: isWantTodoEnabled() })
       })
       return
     }
-    const { syncTabBar } = require('../../utils/group')
-    syncTabBar(true)
-    this.setData({ locked: false, groupName: group.name || '' })
-    this.loadStatus()
+
+    const ready = (app && app.whenReady) || (() => Promise.resolve({ group: null }))
+    ready
+      .call(app)
+      .then((r) => apply((r && r.group) || getCurrentGroup()))
+      .catch(() => apply(getCurrentGroup()))
+  },
+
+  goWantTodo() {
+    if (!isWantTodoEnabled()) return
+    wx.switchTab({ url: '/pages/recommend/recommend' })
+  },
+
+  loadTitles() {
+    const group = getCurrentGroup()
+    if (!group) return
+    wx.cloud
+      .callFunction({
+        name: 'checkin',
+        data: { action: 'titles', groupId: group._id }
+      })
+      .then((res) => {
+        const r = res.result || {}
+        if (!r.ok) return
+        this.setData({ titles: r.titles || [] })
+      })
+      .catch(() => {})
   },
 
   loadStatus() {
@@ -55,7 +113,9 @@ Page({
           points: r.points || 0,
           totalCheckins: r.totalCheckins || 0,
           streakMilestones,
-          totalMilestones
+          totalMilestones,
+          streakHasClaim: hasClaimable(streakMilestones),
+          totalHasClaim: hasClaimable(totalMilestones)
         }
         if (this.data.showRewards) {
           Object.assign(patch, this.buildSheet(this.data.rewardType, patch))
@@ -171,7 +231,13 @@ Page({
     const list = (this.data[key] || []).map((m) =>
       m.threshold === threshold ? { ...m, claimed: true } : m
     )
-    const patch = { [key]: list }
+    const patch = {
+      [key]: list,
+      streakHasClaim:
+        type === 'streak' ? hasClaimable(list) : hasClaimable(this.data.streakMilestones),
+      totalHasClaim:
+        type === 'total' ? hasClaimable(list) : hasClaimable(this.data.totalMilestones)
+    }
     if (this.data.showRewards && this.data.rewardType === type) {
       Object.assign(patch, this.buildSheet(type, { ...this.data, [key]: list }))
     }
